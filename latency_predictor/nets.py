@@ -46,17 +46,19 @@ class FactorizedLatencyNet(torch.nn.Module):
                     cfg["sys_net"]["hl"]
                     )
 
+        self.log_net.to(device)
+
         if cfg["factorized_net"]["arch"] == "mlp":
             self.fact_net = SimpleRegression(
                     cfg["factorized_net"]["embedding_size"]*2,
                     1, cfg["factorized_net"]["num_layers"],
                     cfg["factorized_net"]["hl"])
+            self.fact_net.to(device)
 
         elif cfg["factorized_net"]["arch"] == "dot":
             pass
 
     def forward(self, data):
-
         xplan = self.gcn_net(data)
         xsys = self.log_net(data)
 
@@ -79,10 +81,12 @@ class TransformerLogs(torch.nn.Module):
         # TODO: calculate this
         seq_len = 10
         self.net = RegressionTransformer(input_width,
-                4, num_hidden_layers, seq_len, n_output)
+                4, num_hidden_layers, seq_len, n_output).to(device)
 
     def forward(self, data):
         x = data["sys_logs"]
+        x = x.to(device, non_blocking=True)
+
         # batch size is implicitly 1
         x = x.unsqueeze(dim=0)
         return self.net(x).squeeze(dim=0)

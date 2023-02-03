@@ -6,6 +6,8 @@ import torch.nn.functional as F
 import random, math
 import pdb
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 class SelfAttentionWide(nn.Module):
     def __init__(self, emb, heads=8, mask=False):
         """
@@ -13,7 +15,6 @@ class SelfAttentionWide(nn.Module):
         :param heads:
         :param mask:
         """
-
         super().__init__()
 
         self.emb = emb
@@ -198,19 +199,20 @@ class RegressionTransformer(nn.Module):
 
         self.max_pool = max_pool
         self.pos_embedding = nn.Embedding(embedding_dim=emb,
-                num_embeddings=seq_length)
+                num_embeddings=seq_length).to(device)
 
         tblocks = []
         for i in range(depth):
             tblocks.append(
-                TransformerBlock(emb=emb, heads=heads, seq_length=seq_length, mask=False, dropout=dropout, wide=wide))
+                TransformerBlock(emb=emb, heads=heads, seq_length=seq_length,
+                    mask=False, dropout=dropout, wide=wide).to(device))
 
-        self.tblocks = nn.Sequential(*tblocks)
+        self.tblocks = nn.Sequential(*tblocks).to(device)
 
         self.final_layer = nn.Sequential(
             nn.Linear(emb, num_classes, bias=True),
-        )
-        self.do = nn.Dropout(dropout)
+        ).to(device)
+        self.do = nn.Dropout(dropout).to(device)
 
     def forward(self, x):
         """
@@ -219,7 +221,8 @@ class RegressionTransformer(nn.Module):
         """
         # tokens = x
         b, t, e = x.size()
-        positions = self.pos_embedding(torch.arange(t))[None, :, :].expand(b, t, e)
+        positions = self.pos_embedding(torch.arange(t).to(device))[None, :, :].expand(b,
+                t, e).to(device)
 
         x = x + positions
         x = self.do(x)
