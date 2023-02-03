@@ -12,17 +12,20 @@ class QueryPlanDataset(data.Dataset):
     def __init__(self, plans,
             syslogs,
             featurizer,
-            subplan_ests=False
+            sys_log_feats,
+            subplan_ests=False,
             ):
+
+        for k, val in sys_log_feats.items():
+            self.__setattr__(k, val)
 
         self.subplan_ests = subplan_ests
         self.featurizer = featurizer
-        # self.num_features = self.featurizer.num_features
-        # self.num_global_features = self.featurizer.num_global_features
+
         print("node feature length: {}, global_features: {}".format(
             self.featurizer.num_features, self.featurizer.num_global_features))
 
-        self.data = self._get_features_geometric(plans, syslogs)
+        self.data = self._get_features(plans, syslogs)
 
     def __len__(self):
         return len(self.data)
@@ -32,7 +35,7 @@ class QueryPlanDataset(data.Dataset):
         '''
         return self.data[index]
 
-    def _get_features_geometric(self, plans, syslogs):
+    def _get_features(self, plans, sys_logs):
         data = []
 
         for G in plans:
@@ -50,9 +53,17 @@ class QueryPlanDataset(data.Dataset):
 
             ## extra info;
             curfeats["info"] = info
+            cur_logs = sys_logs[G.graph["tag"]]
+            prev_logs = extract_previous_logs(cur_logs, G.graph["start_time"],
+                                    prev_secs=self.log_prev_secs,
+                                    skip_logs = self.log_skip,
+                                    )
+
+            logf = self.featurizer.get_log_features(prev_logs,
+                                                    self.log_avg)
 
             ## syslogs
-            curfeats["syslogs"] = []
+            curfeats["sys_logs"] = logf
             data.append(curfeats)
 
         return data

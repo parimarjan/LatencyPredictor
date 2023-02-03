@@ -15,6 +15,7 @@ MAX_SET_LEN = 50
 class Featurizer():
     def __init__(self,
             plans,
+            sys_logs,
             *args,
             **kwargs):
         '''
@@ -25,38 +26,32 @@ class Featurizer():
         self.ignore_node_feats = IGNORE_NODE_FEATS
 
         self.normalization_stats = {}
-        attrs = defaultdict(set)
-
-        self._update_attrs(plans, attrs)
-
-        if self.y_normalizer != "none":
-            assert False
-
         self.idx_starts = {}
         self.idx_types = {}
         self.val_idxs = {}
         self.idx_lens = {}
+
+        ## handling plan features / normalizations
+        attrs = defaultdict(set)
+        self._update_attrs(plans, attrs)
+        if self.y_normalizer != "none":
+            assert False
 
         # for graph features, each node will reserve spots for each of the
         # features
         self.cur_feature_idx = 0
         self.num_features = 0
         self.num_global_features = 0
-
-        # print("Features based on: ", attrs.keys())
         used_keys = set()
+
         for k,v in attrs.items():
             if k in self.ignore_node_feats:
                 print("ignoring node feature of type: {}, with {} elements".format(k, len(v)))
                 continue
-
             if "Actual" in k:
                 continue
-
             if len(v) == 1:
                 continue
-
-            print(k, len(v))
 
             self.idx_starts[k] = self.cur_feature_idx
             used_keys.add(k)
@@ -102,6 +97,7 @@ class Featurizer():
                 del self.idx_starts[k]
 
         print("Features based on: ", used_keys)
+        self._init_syslog_features(sys_logs)
 
     def _update_attrs(self, plans, attrs):
         for G in plans:
@@ -110,6 +106,34 @@ class Featurizer():
                     # if key in self.ignore_node_feats:
                         # continue
                     attrs[key].add(val)
+
+    def _init_syslog_features(self, sys_logs):
+        alllogs = [v for _,v in sys_logs.items()]
+        df = pd.concat(alllogs)
+        keys = df.keys()
+
+        self.num_syslog_features = 0
+        cur_feature_idx = 0
+
+        for key in keys:
+            if len(set(df[key])) == 1:
+                continue
+            assert key not in self.idx_starts
+            self.idx_starts[key] = cur_feature_idx
+
+            # cvs = [float(v0) for v0 in v]
+            if self.normalizer == "min-max":
+                self.normalization_stats[key] = (min(df[key]), max(df[key]))
+            elif self.normalizer == "std":
+                self.normalization_stats[key] = (np.mean(df[key].values),
+                        np.std(df[key].values))
+            else:
+                assert False
+
+            self.idx_types[key] = "cont"
+            self.idx_lens[key] = 1
+            cur_feature_idx += 1
+            self.num_syslog_features += 1
 
     def normalizeY(self, y):
         '''
@@ -182,7 +206,6 @@ class Featurizer():
             self.handle_key(k, v, feature)
 
         ### additional / derived features
-
         if self.feat_noncumulative_costs:
             pass
 
@@ -202,6 +225,35 @@ class Featurizer():
             pass
 
         return feature
+
+    def get_log_features(self, prev_logs, avg_logs=False):
+
+        if avg_logs:
+            feature = np.zeros(self.num_syslog_features)
+        else:
+            feature = np.zeros((len(prev_logs), self.num_syslog_features))
+
+        for key in prev_logs.keys():
+            if key not in self.idx_starts:
+                continue
+            idx_col = self.idx_starts[key]
+            m0, m1 = self.normalization_stats[key]
+            if avg_logs:
+                if self.normalizer == "min-max":
+                    val = (prev_logs[key].values.mean() - m0) / (m1 - m0)
+                elif self.normalizer == "std":
+                    val = (prev_logs[key].values.mean() - m0) / m1
+                feature[idx_col] = val
+            else:
+                if self.normalizer == "min-max":
+                    vals = (prev_logs[key].values - m0) / (m1 - m0)
+                elif self.normalizer == "std":
+                    vals = (prev_logs[key].values - m0) / m1
+                feature[:,idx_col] = vals
+
+        feature = torch.tensor(feature, dtype=torch.float)
+        return feature
+
 
     def get_pytorch_geometric_features(self, G, subplan_ests=False):
         nodes = list(G.nodes())
@@ -225,6 +277,7 @@ class Featurizer():
                 edge_idxs[0].append(node_dict[edge[0]])
                 edge_idxs[1].append(node_dict[edge[1]])
 
+        x = np.array(x)
         x = torch.tensor(x, dtype=torch.float)
         edge_idxs = torch.tensor(edge_idxs, dtype=torch.long)
 

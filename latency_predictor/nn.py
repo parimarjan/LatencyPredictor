@@ -36,10 +36,14 @@ def qloss_torch(yhat, ytrue):
     return torch.mean(errors)
 
 class NN(LatencyPredictor):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, cfg={}, **kwargs):
         self.exp_version = None
         self.kwargs = kwargs
         for k, val in kwargs.items():
+            self.__setattr__(k, val)
+
+        self.cfg = cfg
+        for k, val in cfg["common"].items():
             self.__setattr__(k, val)
 
         self.collate_fn = collate_fn_gcn
@@ -67,13 +71,24 @@ class NN(LatencyPredictor):
         self.cur_stats = defaultdict(list)
         self.log_stat_fmt = "{samples_type}-{loss_type}"
 
-    def _init_net(self, num_features):
+    def _init_net(self):
         if self.arch == "gcn":
-            self.net = SimpleGCN(num_features,
+            self.net = SimpleGCN(self.featurizer.num_features,
                     self.featurizer.num_global_features,
                     self.hl1, self.num_conv_layers,
                     final_act=self.final_act,
-                    subplan_ests = self.subplan_ests
+                    subplan_ests = self.subplan_ests,
+                    out_feats=1,
+                    )
+        elif self.arch == "avg":
+            self.net = LogAvgRegression(
+                    self.featurizer.num_syslog_features,
+                    1, 4, self.hl1)
+        elif self.arch == "factorized":
+            self.net = FactorizedLatencyNet(self.cfg,
+                    self.featurizer.num_features,
+                    self.featurizer.num_global_features,
+                    self.featurizer.num_syslog_features,
                     )
         else:
             assert False
@@ -113,7 +128,6 @@ class NN(LatencyPredictor):
         for bidx, data in enumerate(self.traindl):
             y = data.y.to(device)
             yhat = self.net(data)
-
             if self.subplan_ests:
                 assert False
                 # yhat = yhat.squeeze()
@@ -164,15 +178,21 @@ class NN(LatencyPredictor):
                 wandb.log({stat_name: loss, "epoch":self.epoch})
 
     def train(self, train_plans, sys_logs, featurizer,
+            sys_log_feats,
             same_env_unseen=None,
-            new_env_seen = None, new_env_unseen = None):
+            new_env_seen = None, new_env_unseen = None,
+            ):
 
         self.featurizer = featurizer
+        self.sys_log_feats = sys_log_feats
 
         self.ds = QueryPlanDataset(train_plans,
                 sys_logs,
                 self.featurizer,
-                subplan_ests=self.subplan_ests)
+                self.cfg["sys_net"],
+                # self.sys_log_feats,
+                subplan_ests=self.subplan_ests,
+                )
         self.traindl = torch.utils.data.DataLoader(self.ds,
                 batch_size=self.batch_size,
                 shuffle=True, collate_fn=self.collate_fn)
@@ -187,7 +207,7 @@ class NN(LatencyPredictor):
 
         ## TODO: initialize for other datasets
 
-        self._init_net(self.featurizer.num_features)
+        self._init_net()
         print(self.net)
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr,
                 weight_decay=self.weight_decay)
@@ -225,6 +245,7 @@ class NN(LatencyPredictor):
         ds = QueryPlanDataset(plans,
                 sys_logs,
                 self.featurizer,
+                self.cfg["sys_net"],
                 subplan_ests=self.subplan_ests)
         dl = torch.utils.data.DataLoader(ds,
                 batch_size=self.batch_size,

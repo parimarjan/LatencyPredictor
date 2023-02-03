@@ -196,6 +196,18 @@ def load_sys_logs(inp_dir):
         except Exception as e:
             print(e)
             continue
+        if len(curdf) == 0:
+            continue
+
+        ts_reps = curdf.groupby("timestamp")["interval"].count()\
+                .reset_index().sort_values(by="interval",
+                ascending=False)["interval"].values[0]
+
+        if ts_reps > 1:
+            curdf = curdf.groupby("timestamp").mean().reset_index()
+            curdf = curdf.drop(columns=["interval"])
+        else:
+            curdf = curdf.drop(columns=["# hostname", "interval"])
 
         if 'kbmemfree' in curdf.keys():
             logdfs["mem"] = curdf
@@ -275,7 +287,22 @@ def load_sys_logs(inp_dir):
         else:
             assert False
 
-    return logdfs
+    keys = list(logdfs.keys())
+    for k in keys:
+        if "network" in k:
+            del logdfs[k]
+            continue
+        if k in ["power-cpu", "hugepg", "power-temp"]:
+            del logdfs[k]
+            continue
+
+    keys = list(logdfs.keys())
+    curdf = logdfs[keys[0]]
+
+    for ki in range(1,len(keys)):
+        curdf = curdf.merge(logdfs[keys[ki]], on="timestamp")
+
+    return curdf
 
 def get_plans(df):
     plans = []
@@ -293,9 +320,22 @@ def get_plans(df):
         G.graph["start_time"] = row["start_time"]
         G.graph["latency"] = row["runtime"]
         G.graph["tag"] = row["tag"]
+        G.graph["qname"] = row["qname"]
         plans.append(G)
 
     return plans
+
+def extract_previous_logs(cur_sys_logs, start_time,
+                        prev_secs,
+                        skip_logs,
+                        ):
+
+    tmp = cur_sys_logs[(cur_sys_logs["timestamp"] <= start_time) & \
+            (cur_sys_logs["timestamp"] >= start_time - prev_secs)]
+    tmp = tmp.iloc[::skip_logs, :]
+
+    return tmp
+
 
 def load_all_logs(inp_tag, inp_dir):
 

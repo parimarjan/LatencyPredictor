@@ -1,0 +1,27 @@
+%YAML 1.2
+---
+gpu: 0
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 1
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 4
+  subplan_ests: 0
+sys_net:
+  arch: "mlp" # transformer
+  hl: 256
+  num_layers: 2
+  log_prev_secs: 100
+  log_avg: True
+  log_skip: 1
+factorized_net:
+  arch: "mlp" # dot product
+  hl: 64
+  num_layers: 2
+  embedding_size: 32
+...

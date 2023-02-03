@@ -3,6 +3,7 @@ import networkx as nx
 import wandb
 import random
 import numpy as np
+from collections import defaultdict
 import pdb
 
 class LatencyPredictor():
@@ -11,13 +12,13 @@ class LatencyPredictor():
         # TODO: set each of the kwargs as variables
         pass
 
-    def train(self, traindata, **kwargs):
+    def train(self, train_plans, sys_logs, featurizer,
+            **kwargs):
         pass
 
-    def test(self, testdata, **kwargs):
+    def test(self, plans, sys_logs, **kwargs):
         '''
-        @ret: [dicts]. Each element is a {key: qkey;
-        val: {distribution_num : score}}
+        @ret: [latencies].
         '''
         pass
 
@@ -41,3 +42,22 @@ class LatencyPredictor():
 
     def save_model(self, save_dir="./", suffix_name=""):
         pass
+
+class AvgPredictor(LatencyPredictor):
+
+    def __init__(self, *args, **kwargs):
+        # TODO: set each of the kwargs as variables
+        pass
+
+    def test(self, plans, sys_logs, **kwargs):
+        '''
+        '''
+        ret = []
+        qtimes = defaultdict(list)
+        for plan in plans:
+            qtimes[plan.graph["qname"]].append(plan.graph["latency"])
+
+        for plan in plans:
+            ret.append(np.mean(qtimes[plan.graph["qname"]]))
+
+        return ret

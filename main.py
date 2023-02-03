@@ -13,13 +13,18 @@ from latency_predictor.featurizer import *
 import wandb
 import logging
 import csv
+import yaml
 
 logger = logging.getLogger("wandb")
 logger.setLevel(logging.ERROR)
 
-def get_alg(alg):
-    if alg == "nn":
-        return NN(arch = args.arch, hl1 = args.hl1,
+def get_alg(alg, cfg):
+    if alg == "avg":
+        return AvgPredictor()
+    elif alg == "nn":
+        return NN(
+                cfg = cfg,
+                arch = args.arch, hl1 = args.hl1,
                 subplan_ests = args.subplan_ests,
                 eval_fn_names = args.eval_fns,
                 num_conv_layers = args.num_conv_layers,
@@ -57,7 +62,8 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
 
     for loss_func in loss_funcs:
         lossarr = loss_func.eval(ests, truey,
-                args=args, samples_type=samples_type)
+                args=args, samples_type=samples_type,
+                )
 
         rdir = os.path.join(args.result_dir, exp_name)
         make_dir(rdir)
@@ -91,9 +97,12 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
 
 def read_flags():
     parser = argparse.ArgumentParser()
+
+    parser.add_argument("--config", type=str, required=False,
+            default="config.yaml", help="")
+
     parser.add_argument("--use_true_rows", type=int, required=False,
             default=0)
-
     parser.add_argument("--table_feat", type=int, required=False,
             default=0, help="1/0; add one-hot features for table in query.")
     parser.add_argument("--col_feat", type=int, required=False,
@@ -165,7 +174,7 @@ def read_flags():
     parser.add_argument("--num_conv_layers", type=int, required=False,
             default=4)
     parser.add_argument("--eval_epoch", type=int, required=False,
-            default=100)
+            default=2)
     parser.add_argument("--num_epochs", type=int, required=False,
             default=10)
 
@@ -190,12 +199,25 @@ def read_flags():
 def main():
     global args
 
+    with open(args.config) as f:
+        cfg = yaml.safe_load(f.read())
+
+    print(yaml.dump(cfg, default_flow_style=False))
+
     if args.use_wandb:
+        wandbcfg = {}
+        for k,v in cfg.items():
+            if isinstance(v, dict):
+                for k2,v2 in v.items():
+                    wandbcfg.update({k+"-"+k2:v2})
+            else:
+                wandbcfg.update({k:v})
+
         wandb_tags = ["1a"]
         if args.wandb_tags is not None:
             wandb_tags += args.wandb_tags.split(",")
 
-        wandb.init("learned-latency", config={},
+        wandb.init("learned-latency", config=wandbcfg,
                 tags=wandb_tags)
         wandb.config.update(vars(args))
 
@@ -242,6 +264,7 @@ Num test queries: {}, Num test samples: {}".format(
         test_samples))
 
     featurizer = Featurizer(train_plans,
+                            sys_logs,
                             # use_true_rows = args.use_true_rows,
                             feat_undirected_edges = args.feat_undirected_edges,
                             feat_noncumulative_costs = args.feat_noncumulative_costs,
@@ -256,7 +279,7 @@ Num test queries: {}, Num test samples: {}".format(
                             col_feat = args.col_feat,
                             num_bins=50)
 
-    alg = get_alg(args.alg)
+    alg = get_alg(args.alg, cfg)
     exp_name = alg.get_exp_name()
     rdir = os.path.join(args.result_dir, exp_name)
     make_dir(rdir)
@@ -272,11 +295,17 @@ Num test queries: {}, Num test samples: {}".format(
     for l in eval_fn_names:
         eval_fns.append(get_eval_fn(l))
 
+    sys_log_feats = {}
+    sys_log_feats["sys_log_prev_secs"] = 100
+    sys_log_feats["sys_log_avg"] = True
+    sys_log_feats["sys_log_skip"] = 1
+
     alg.train(train_plans,
             sys_logs,
             featurizer,
+            sys_log_feats,
             new_env_seen= new_env_seen,
-            new_env_unseen = new_env_unseen
+            new_env_unseen = new_env_unseen,
             )
 
     eval_alg(alg, eval_fns, train_plans, sys_logs, "train")
