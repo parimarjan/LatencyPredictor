@@ -17,8 +17,8 @@ sys_net:
   hl: 256
   num_layers: 2
   log_prev_secs: 100
-  log_avg: True
   log_skip: 1
+
 factorized_net:
   arch: "mlp" # dot product
   hl: 64

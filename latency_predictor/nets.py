@@ -4,6 +4,9 @@ from torch_geometric.nn import GCNConv
 from torch import nn
 import pdb
 
+from latency_predictor.transformer import RegressionTransformer
+from tst import Transformer
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class FactorizedLatencyNet(torch.nn.Module):
@@ -60,7 +63,37 @@ class FactorizedLatencyNet(torch.nn.Module):
 
         return out
 
+class TransformerLogs(torch.nn.Module):
+    def __init__(self, input_width, n_output,
+            num_hidden_layers,
+            hidden_layer_size,
+            ):
+        super(TransformerLogs, self).__init__()
+        # TODO: calculate this
+        seq_len = 10
+        self.net = RegressionTransformer(input_width,
+                4, num_hidden_layers, seq_len, n_output)
 
+    def forward(self, data):
+        x = data["sys_logs"]
+        # batch size is implicitly 1
+        x = x.unsqueeze(dim=0)
+        return self.net(x).squeeze(dim=0)
+
+class TSTLogs(torch.nn.Module):
+    def __init__(self, input_width, n_output,
+            num_hidden_layers,
+            hidden_layer_size,
+            ):
+        super(TSTLogs, self).__init__()
+        self.net = Transformer(20, input_width, 2,
+                        2, 2, 2, 2)
+
+    def forward(self, data):
+        x = data["sys_logs"]
+        # if len(x.shape) == 2:
+            # x = x.unsqueeze(dim=0)
+        return self.net(x)
 
 class LogAvgRegression(torch.nn.Module):
     def __init__(self, input_width, n_output,

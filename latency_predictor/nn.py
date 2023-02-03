@@ -84,6 +84,14 @@ class NN(LatencyPredictor):
             self.net = LogAvgRegression(
                     self.featurizer.num_syslog_features,
                     1, 4, self.hl1)
+        elif self.arch == "tst":
+            self.net = TSTLogs(
+                    self.featurizer.num_syslog_features,
+                    1, 4, self.hl1)
+        elif self.arch == "transformerlogs":
+            self.net = TransformerLogs(
+                    self.featurizer.num_syslog_features,
+                    1, 4, self.hl1)
         elif self.arch == "factorized":
             self.net = FactorizedLatencyNet(self.cfg,
                     self.featurizer.num_features,
@@ -128,6 +136,7 @@ class NN(LatencyPredictor):
         for bidx, data in enumerate(self.traindl):
             y = data.y.to(device)
             yhat = self.net(data)
+
             if self.subplan_ests:
                 assert False
                 # yhat = yhat.squeeze()
@@ -228,6 +237,8 @@ class NN(LatencyPredictor):
                 yhat = self.net(data)
                 # yhat = yhat.squeeze()
                 y = data.y
+                # print(y.shape, yhat.shape)
+                # pdb.set_trace()
                 assert yhat.shape == y.shape
                 y = y.item()
                 trueys.append(self.featurizer.unnormalizeY(y))

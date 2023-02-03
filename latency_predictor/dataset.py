@@ -15,9 +15,13 @@ class QueryPlanDataset(data.Dataset):
             sys_log_feats,
             subplan_ests=False,
             ):
-
         for k, val in sys_log_feats.items():
             self.__setattr__(k, val)
+
+        if sys_log_feats["arch"] == "mlp":
+            self.log_avg = True
+        else:
+            self.log_avg = False
 
         self.subplan_ests = subplan_ests
         self.featurizer = featurizer
