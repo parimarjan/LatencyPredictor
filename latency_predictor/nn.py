@@ -31,7 +31,13 @@ def collate_fn_gcn(Z):
     return torch_geometric.data.Batch.from_data_list(Z).to(device)
 
 def qloss_torch(yhat, ytrue):
+    min_est = np.array([0.1]*len(yhat))
     assert yhat.shape == ytrue.shape
+    min_est = torch.tensor(min_est, dtype=torch.float)
+
+    ytrue = torch.max(ytrue, min_est)
+    yhat = torch.max(yhat, min_est)
+
     errors = torch.max( (ytrue / yhat), (yhat / ytrue))
     return torch.mean(errors)
 

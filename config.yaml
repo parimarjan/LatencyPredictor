@@ -13,7 +13,7 @@ plan_net:
   num_conv_layers: 4
   subplan_ests: 0
 sys_net:
-  arch: "mlp" # transformer
+  arch: "transformer" # transformer
   hl: 256
   num_layers: 2
   log_prev_secs: 100

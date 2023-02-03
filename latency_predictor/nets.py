@@ -38,6 +38,13 @@ class FactorizedLatencyNet(torch.nn.Module):
                     cfg["sys_net"]["num_layers"],
                     cfg["sys_net"]["hl"]
                     )
+        elif cfg["sys_net"]["arch"] == "transformer":
+            self.log_net = TransformerLogs(
+                    num_sys_features,
+                    cfg["factorized_net"]["embedding_size"],
+                    cfg["sys_net"]["num_layers"],
+                    cfg["sys_net"]["hl"]
+                    )
 
         if cfg["factorized_net"]["arch"] == "mlp":
             self.fact_net = SimpleRegression(
