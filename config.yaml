@@ -15,7 +15,8 @@ plan_net:
 sys_net:
   arch: "transformer" # transformer
   hl: 256
-  num_layers: 2
+  num_layers: 4
+  num_heads: 16
   log_prev_secs: 100
   log_skip: 1
 

@@ -97,7 +97,10 @@ class NN(LatencyPredictor):
         elif self.arch == "transformerlogs":
             self.net = TransformerLogs(
                     self.featurizer.num_syslog_features,
-                    1, 4, self.hl1)
+                    1, 4,
+                    self.hl,
+                    self.cfg["sys_net"]["num_heads"],
+                    )
         elif self.arch == "factorized":
             self.net = FactorizedLatencyNet(self.cfg,
                     self.featurizer.num_features,
