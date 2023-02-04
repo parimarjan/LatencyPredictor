@@ -196,13 +196,13 @@ class NN(LatencyPredictor):
                 wandb.log({stat_name: loss, "epoch":self.epoch})
 
     def train(self, train_plans, sys_logs, featurizer,
-            sys_log_feats,
+            # sys_log_feats,
             same_env_unseen=None,
             new_env_seen = None, new_env_unseen = None,
             ):
 
         self.featurizer = featurizer
-        self.sys_log_feats = sys_log_feats
+        # self.sys_log_feats = sys_log_feats
 
         self.ds = QueryPlanDataset(train_plans,
                 sys_logs,

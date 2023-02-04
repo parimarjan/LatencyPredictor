@@ -59,7 +59,7 @@ class Featurizer():
             v0 = random.sample(v, 1)[0]
             if len(v) < MAX_SET_LEN:
                 if len(v) < self.num_bins:
-                    print(k, ": one-hot using bins")
+                    # print(k, ": one-hot using bins")
                     num_vals = len(v)
                     self.idx_types[k] = "one-hot"
                     # each unique value is mapped to an index
@@ -69,7 +69,7 @@ class Featurizer():
                     for i, ve in enumerate(v):
                         self.val_idxs[k][ve] = i
                 else:
-                    print(k, ": feature-hashing")
+                    # print(k, ": feature-hashing")
                     num_vals = self.num_bins
                     self.idx_types[k] = "feature-hashing"
 
@@ -78,7 +78,7 @@ class Featurizer():
                 self.cur_feature_idx += num_vals
 
             elif is_float(v0):
-                print(k, ": continuous feature")
+                # print(k, ": continuous feature")
                 cvs = [float(v0) for v0 in v]
                 if self.normalizer == "min-max":
                     self.normalization_stats[k] = (min(cvs), max(cvs))
@@ -92,8 +92,8 @@ class Featurizer():
                 self.cur_feature_idx += 1
                 self.num_features += 1
             else:
-                print("skipping features {}, because too many values: {}"\
-                        .format(k, len(v)))
+                # print("skipping features {}, because too many values: {}"\
+                        # .format(k, len(v)))
                 del self.idx_starts[k]
 
         print("Features based on: ", used_keys)
@@ -140,6 +140,8 @@ class Featurizer():
         TODO.
         '''
         assert self.y_normalizer == "none"
+        if self.log_transform_y:
+            np.log(y)
         return y
 
     def unnormalizeY(self, y):
@@ -147,6 +149,8 @@ class Featurizer():
         TODO.
         '''
         assert self.y_normalizer == "none"
+        if self.log_transform_y:
+            np.exp(y)
         return y
 
     def handle_key(self, key, v, feature):

@@ -41,7 +41,7 @@ class QueryPlanDataset(data.Dataset):
 
     def _get_features(self, plans, sys_logs):
         data = []
-
+        skip = 0
         for G in plans:
             if self.subplan_ests:
                 assert False
@@ -62,6 +62,9 @@ class QueryPlanDataset(data.Dataset):
                                     prev_secs=self.log_prev_secs,
                                     skip_logs = self.log_skip,
                                     )
+            if len(prev_logs) == 0:
+                skip += 1
+                continue
 
             logf = self.featurizer.get_log_features(prev_logs,
                                                     self.log_avg)
@@ -70,6 +73,7 @@ class QueryPlanDataset(data.Dataset):
             curfeats["sys_logs"] = logf
             data.append(curfeats)
 
+        print("Skipped {} plans because sys logs missing".format(skip))
         return data
 
 

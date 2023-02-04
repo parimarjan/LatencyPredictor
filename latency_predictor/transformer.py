@@ -144,7 +144,8 @@ class SelfAttentionNarrow(nn.Module):
 
 class TransformerBlock(nn.Module):
 
-    def __init__(self, emb, heads, mask, seq_length, ff_hidden_mult=4, dropout=0.0, wide=True):
+    def __init__(self, emb, heads, mask, seq_length, ff_hidden_mult=4,
+            dropout=0.2, wide=True):
         super().__init__()
 
         self.attention = SelfAttentionWide(emb, heads=heads, mask=mask) if wide \
@@ -184,7 +185,7 @@ class RegressionTransformer(nn.Module):
     """
 
     def __init__(self, emb, heads, depth, seq_length, num_classes,
-            max_pool=True, dropout=0.0, wide=True):
+            max_pool=True, dropout=0.2, wide=True):
         """
         :param emb: Embedding dimension
         :param heads: nr. of attention heads

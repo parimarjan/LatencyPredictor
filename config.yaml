@@ -1,6 +1,8 @@
 %YAML 1.2
 ---
-gpu: 0
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/"
+tags : "CEB-t2medium-gp2"
 
 dataset:
   input_train: ''
@@ -13,7 +15,8 @@ plan_net:
   num_conv_layers: 4
   subplan_ests: 0
 sys_net:
-  arch: "transformer" # transformer
+  # mlp / transformer
+  arch: "transformer"
   hl: 256
   num_layers: 4
   num_heads: 16

@@ -33,9 +33,9 @@ def get_alg(alg, cfg):
                 log_transform_y = args.log_transform_y,
                 batch_size = args.batch_size,
                 global_feats = args.global_feats,
-                tags = args.tags,
+                # tags = args.tags,
                 seed = args.seed, test_size = args.test_size,
-                val_size = args.val_size,
+                # val_size = args.val_size,
                 eval_epoch = args.eval_epoch,
                 # logdir = args.logdir,
                 num_epochs = args.num_epochs,
@@ -85,7 +85,7 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
         wandb.run.summary[loss_key2] = np.percentile(lossarr, 99)
 
         print("tags: {}, samples_type: {}, alg: {}, samples: {}, {}: mean: {}, median: {}, 95p: {}, 99p: {}"\
-                .format(args.tags,
+                .format(cfg["tags"],
                     samples_type, alg, len(lossarr),
                     loss_func.__str__(),
                     np.round(np.mean(lossarr),3),
@@ -129,9 +129,9 @@ def read_flags():
     parser.add_argument("--final_act", type=str, required=False,
             default="none", help="add a final activation in the models or not.")
 
-    parser.add_argument("--tags", type=str, required=False,
-            default="t7xlarge-gp3-d",
-            help="tags to use for training data")
+    # parser.add_argument("--tags", type=str, required=False,
+            # default="t7xlarge-gp3-d",
+            # help="tags to use for training data")
     parser.add_argument("--use_eval_tags", type=int, required=False,
             default=0, help="0 or 1. use additional tags for evaluating models or not.")
 
@@ -149,8 +149,8 @@ def read_flags():
     parser.add_argument("--log_transform_y", type=int, required=False,
             default=0, help="predicting log(latency) instead of latency")
 
-    parser.add_argument("--traindata_dir", type=str, required=False,
-            default="""LatencyCollectorResults/multiple""", help="directory with the workload log files.")
+    # parser.add_argument("--traindata_dir", type=str, required=False,
+            # default="""LatencyCollectorResults/multiple""", help="directory with the workload log files.")
 
     parser.add_argument("--result_dir", type=str, required=False,
             default="results",
@@ -160,9 +160,9 @@ def read_flags():
             default=666, help="seed for train/test split")
 
     parser.add_argument("--test_size", type=float, required=False,
-            default=0.2)
-    parser.add_argument("--val_size", type=float, required=False,
-            default=0.2)
+            default=0.0)
+    # parser.add_argument("--val_size", type=float, required=False,
+            # default=0.2)
 
     ## NN parameters
     parser.add_argument("--lr", type=float, required=False,
@@ -197,7 +197,7 @@ def read_flags():
     return parser.parse_args()
 
 def main():
-    global args
+    global args,cfg
 
     with open(args.config) as f:
         cfg = yaml.safe_load(f.read())
@@ -221,7 +221,7 @@ def main():
                 tags=wandb_tags)
         wandb.config.update(vars(args))
 
-    tags = args.tags.split(",")
+    tags = cfg["tags"].split(",")
     print("Using tags: ", tags)
 
     all_dfs = []
@@ -229,7 +229,7 @@ def main():
     qnames = set()
 
     for tag in tags:
-        cdf,clogs = load_all_logs(tag, args.traindata_dir)
+        cdf,clogs = load_all_logs(tag, cfg["traindata_dir"])
         sys_logs[tag] = clogs
         cdf["tag"] = tag
 
@@ -295,15 +295,15 @@ Num test queries: {}, Num test samples: {}".format(
     for l in eval_fn_names:
         eval_fns.append(get_eval_fn(l))
 
-    sys_log_feats = {}
-    sys_log_feats["sys_log_prev_secs"] = 100
-    sys_log_feats["sys_log_avg"] = True
-    sys_log_feats["sys_log_skip"] = 1
+    # sys_log_feats = {}
+    # sys_log_feats["sys_log_prev_secs"] = 100
+    # sys_log_feats["sys_log_avg"] = True
+    # sys_log_feats["sys_log_skip"] = 1
 
     alg.train(train_plans,
             sys_logs,
             featurizer,
-            sys_log_feats,
+            # sys_log_feats,
             new_env_seen= new_env_seen,
             new_env_unseen = new_env_unseen,
             )
@@ -331,5 +331,6 @@ Num test queries: {}, Num test samples: {}".format(
         # eval_alg(alg, eval_fns, unseeneval, "unseeneval")
 
 if __name__ == "__main__":
+    cfg = {}
     args = read_flags()
     main()
