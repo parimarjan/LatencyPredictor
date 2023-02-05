@@ -48,8 +48,10 @@ class Featurizer():
             if k in self.ignore_node_feats:
                 print("ignoring node feature of type: {}, with {} elements".format(k, len(v)))
                 continue
-            if "Actual" in k:
+
+            if "Actual" in k and not self.actual_feats:
                 continue
+
             if len(v) == 1:
                 continue
 
@@ -119,6 +121,9 @@ class Featurizer():
             if len(set(df[key])) == 1:
                 continue
             assert key not in self.idx_starts
+            if not is_float(min(df[key])):
+                continue
+
             self.idx_starts[key] = cur_feature_idx
 
             # cvs = [float(v0) for v0 in v]
@@ -250,7 +255,12 @@ class Featurizer():
                 feature[idx_col] = val
             else:
                 if self.normalizer == "min-max":
-                    vals = (prev_logs[key].values - m0) / (m1 - m0)
+                    try:
+                        vals = (prev_logs[key].values - m0) / (m1 - m0)
+                    except Exception as e:
+                        print(m0, m1, prev_logs[key].values)
+                        pdb.set_trace()
+
                 elif self.normalizer == "std":
                     vals = (prev_logs[key].values - m0) / m1
                 feature[:,idx_col] = vals

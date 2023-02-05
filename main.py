@@ -56,6 +56,9 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
 
     ests = alg.test(plans, sys_logs)
     truey = [plan.graph["latency"] for plan in plans]
+    ests = np.array(ests)
+    truey = np.array(truey)
+    print("Num true: ", len(truey))
 
     eval_time = round(time.time() - start, 2)
     print("evaluating alg {} took: {} seconds".format(alg_name, eval_time))
@@ -64,6 +67,10 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
         lossarr = loss_func.eval(ests, truey,
                 args=args, samples_type=samples_type,
                 )
+        worst_idx = np.argpartition(lossarr, -4)[-4:]
+        print("***Worst runtime preds for: {}***".format(str(loss_func)))
+        print("True: ", np.round(truey[worst_idx], 2))
+        print("Ests: ", np.round(ests[worst_idx], 2))
 
         rdir = os.path.join(args.result_dir, exp_name)
         make_dir(rdir)
@@ -101,7 +108,7 @@ def read_flags():
     parser.add_argument("--config", type=str, required=False,
             default="config.yaml", help="")
 
-    parser.add_argument("--use_true_rows", type=int, required=False,
+    parser.add_argument("--actual_feats", type=int, required=False,
             default=0)
     parser.add_argument("--table_feat", type=int, required=False,
             default=0, help="1/0; add one-hot features for table in query.")
@@ -166,17 +173,17 @@ def read_flags():
 
     ## NN parameters
     parser.add_argument("--lr", type=float, required=False,
-            default=0.0001)
+            default=0.00005)
     parser.add_argument("--weight_decay", type=float, required=False,
             default=0.0)
     parser.add_argument("--hl1", type=int, required=False,
-            default=256)
+            default=512)
     parser.add_argument("--num_conv_layers", type=int, required=False,
             default=4)
     parser.add_argument("--eval_epoch", type=int, required=False,
             default=2)
     parser.add_argument("--num_epochs", type=int, required=False,
-            default=10)
+            default=200)
 
     parser.add_argument("--alg", type=str, required=False,
             default="nn")
@@ -230,6 +237,16 @@ def main():
 
     for tag in tags:
         cdf,clogs = load_all_logs(tag, cfg["traindata_dir"])
+        if len(clogs) == 0:
+            continue
+
+        maxlogtime = max(clogs["timestamp"])
+        try:
+            cdf = cdf[cdf["start_time"] <= maxlogtime]
+        except Exception as e:
+            print(tag, e)
+            continue
+
         sys_logs[tag] = clogs
         cdf["tag"] = tag
 
@@ -245,6 +262,7 @@ def main():
     train_samples,test_samples = 0,0
 
     for df in all_dfs:
+
         train_dfs.append(df[df["qname"].isin(train_qnames)])
         # train_plans.append(get_plans(train_dfs[-1]))
         train_plans += get_plans(train_dfs[-1])
@@ -265,7 +283,7 @@ Num test queries: {}, Num test samples: {}".format(
 
     featurizer = Featurizer(train_plans,
                             sys_logs,
-                            # use_true_rows = args.use_true_rows,
+                            actual_feats = args.actual_feats,
                             feat_undirected_edges = args.feat_undirected_edges,
                             feat_noncumulative_costs = args.feat_noncumulative_costs,
                             log_transform_y = args.log_transform_y,
@@ -303,21 +321,13 @@ Num test queries: {}, Num test samples: {}".format(
     alg.train(train_plans,
             sys_logs,
             featurizer,
-            # sys_log_feats,
+            same_env_unseen = test_plans,
             new_env_seen= new_env_seen,
             new_env_unseen = new_env_unseen,
             )
 
     eval_alg(alg, eval_fns, train_plans, sys_logs, "train")
-
-    # pdb.set_trace()
-
-
-    # alg.train(traindata, valdata=valdata, testdata=testdata,
-            # seenevaldata=seeneval,
-            # unseenevaldata=unseeneval,
-            # featurizer=featurizer)
-    # eval_alg(alg, eval_fns, traindata, "train")
+    eval_alg(alg, eval_fns, test_plans, sys_logs, "train")
 
     # if len(valdata["lats"]) > 0:
         # eval_alg(alg, eval_fns, valdata, "val")

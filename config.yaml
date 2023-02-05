@@ -1,7 +1,7 @@
 %YAML 1.2
 ---
 #gpu: 0
-traindata_dir : "LatencyCollectorResults/"
+traindata_dir : "LatencyCollectorResults"
 tags : "CEB-t2medium-gp2"
 
 dataset:
@@ -20,12 +20,12 @@ sys_net:
   hl: 256
   num_layers: 4
   num_heads: 16
-  log_prev_secs: 100
-  log_skip: 1
+  log_prev_secs: 200
+  log_skip: 2
 
 factorized_net:
   arch: "mlp" # dot product
-  hl: 64
+  hl: 256
   num_layers: 2
-  embedding_size: 32
+  embedding_size: 128
 ...

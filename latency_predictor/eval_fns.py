@@ -46,7 +46,7 @@ class LatencyMSE():
 class LatencyQError():
 
     def __init__(self, **kwargs):
-        self.min_est = 0.1
+        self.min_est = 1.0
 
     def eval(self, ests, trues, **kwargs):
         ests = np.array(ests)

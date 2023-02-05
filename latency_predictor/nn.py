@@ -98,8 +98,9 @@ class NN(LatencyPredictor):
             self.net = TransformerLogs(
                     self.featurizer.num_syslog_features,
                     1, 4,
-                    self.hl,
+                    self.cfg["sys_net"]["num_layers"],
                     self.cfg["sys_net"]["num_heads"],
+                    int(self.cfg["sys_net"]["log_prev_secs"] / 10),
                     )
         elif self.arch == "factorized":
             self.net = FactorizedLatencyNet(self.cfg,
@@ -125,13 +126,6 @@ class NN(LatencyPredictor):
 
             self.log(errors, eval_fn.__str__(), samples_type)
             losses.append(np.mean(errors))
-
-            # if hasattr(self, "update_best") and self.update_best:
-                # # wandb.run.summary
-                # loss_key = "Best-{}-{}-{}".format(str(eval_fn),
-                                                   # samples_type,
-                                                   # "mean")
-                # wandb.run.summary[loss_key] = np.mean(errors)
 
         stat_update = "{}:".format(samples_type)
         for i, eval_fn in enumerate(self.eval_fns):
@@ -191,12 +185,12 @@ class NN(LatencyPredictor):
                     samples_type = samples_type,
                     loss_type = loss_type)
 
-            if self.summary_types[i] == "mean" and \
-                    self.use_wandb:
+            # if self.summary_types[i] == "mean" and \
+                    # self.use_wandb:
+            if self.use_wandb:
                 wandb.log({stat_name: loss, "epoch":self.epoch})
 
     def train(self, train_plans, sys_logs, featurizer,
-            # sys_log_feats,
             same_env_unseen=None,
             new_env_seen = None, new_env_unseen = None,
             ):
@@ -208,7 +202,6 @@ class NN(LatencyPredictor):
                 sys_logs,
                 self.featurizer,
                 self.cfg["sys_net"],
-                # self.sys_log_feats,
                 subplan_ests=self.subplan_ests,
                 )
         self.traindl = torch.utils.data.DataLoader(self.ds,
@@ -223,6 +216,20 @@ class NN(LatencyPredictor):
                 batch_size=self.batch_size,
                 shuffle=False, collate_fn=self.collate_fn)
 
+        if same_env_unseen is not None:
+            ds = QueryPlanDataset(same_env_unseen,
+                    sys_logs,
+                    self.featurizer,
+                    self.cfg["sys_net"],
+                    subplan_ests=self.subplan_ests,
+                    )
+            dl = torch.utils.data.DataLoader(ds,
+                    batch_size=self.batch_size,
+                    shuffle=False, collate_fn=self.collate_fn)
+
+            self.eval_ds["same_env_unseen"] = ds
+            self.eval_loaders["same_env_unseen"] = dl
+
         ## TODO: initialize for other datasets
 
         self._init_net()
@@ -232,7 +239,8 @@ class NN(LatencyPredictor):
 
         for self.epoch in range(self.num_epochs):
             if self.epoch % self.eval_epoch == 0:
-                self.periodic_eval("train")
+                for st in self.eval_loaders.keys():
+                    self.periodic_eval(st)
 
             self._train_one_epoch()
 

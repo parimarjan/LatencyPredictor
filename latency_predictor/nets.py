@@ -44,7 +44,8 @@ class FactorizedLatencyNet(torch.nn.Module):
                     cfg["factorized_net"]["embedding_size"],
                     cfg["sys_net"]["num_layers"],
                     cfg["sys_net"]["hl"],
-                    cfg["sys_net"]["num_heads"]
+                    cfg["sys_net"]["num_heads"],
+                    int(cfg["sys_net"]["log_prev_secs"] / 10),
                     )
 
         self.log_net.to(device)
@@ -78,12 +79,13 @@ class TransformerLogs(torch.nn.Module):
             num_hidden_layers,
             hidden_layer_size,
             num_heads,
+            seq_len,
             ):
         super(TransformerLogs, self).__init__()
         # TODO: calculate this
-        seq_len = 10
         self.net = RegressionTransformer(input_width,
-                num_heads, num_hidden_layers, seq_len, n_output).to(device)
+                num_heads, num_hidden_layers, seq_len, n_output,
+                ).to(device)
 
     def forward(self, data):
         x = data["sys_logs"]
