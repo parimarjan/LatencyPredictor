@@ -74,7 +74,7 @@ class FactorizedLatencyNet(torch.nn.Module):
             xplan = xplan.squeeze()
             ## old, w/ batch = 1
             # emb_out = torch.cat([xplan, xsys])
-            emb_out = torch.cat([xsys,xplan], axis=1)
+            emb_out = torch.cat([xsys,xplan], axis=-1)
             out = self.fact_net(emb_out)
 
         elif self.fact_arch == "dot":
@@ -252,12 +252,18 @@ class SimpleGCN(torch.nn.Module):
             x = self.lin3(x)
             return x
         else:
+            ## code to handle batched training with different shaped graphs
+            # print(x.shape)
+            # out1 = self.lin4(self.lin3(self.lin2(self.lin1(x))))
+            # print(out1.shape)
+            # pdb.set_trace()
             prev_idx = 0
             xs = []
             gfs = []
             for i in range(data.num_graphs):
                 num_nodes = data[i].x.shape[0]
-                xs.append(torch.sum(x[prev_idx:num_nodes], axis=0))
+                ## pooling operator == sum across all nodes;
+                xs.append(torch.sum(x[prev_idx:prev_idx+num_nodes], axis=0))
                 if self.global_feats:
                     sidx = i*self.num_global_feats
                     gfs.append(globalx[sidx:sidx+self.num_global_feats])

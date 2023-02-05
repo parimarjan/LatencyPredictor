@@ -169,7 +169,8 @@ class NN(LatencyPredictor):
                     # loss2 = self.loss_fn(ysum, ytruesum)
                     # loss = loss + loss2
             else:
-                yhat = yhat.squeeze()
+                if len(yhat.shape) > len(y.shape):
+                    yhat = yhat.squeeze()
                 assert y.shape == yhat.shape
                 loss = self.loss_fn(yhat, y)
 
@@ -271,9 +272,10 @@ class NN(LatencyPredictor):
             for data in dl:
                 yhat = self.net(data)
                 # y = data.y
-                # yhat = yhat.squeeze()
 
                 y = data["graph"].y
+                if len(yhat.shape) > len(y.shape):
+                    yhat = yhat.squeeze()
 
                 # y = data.y
                 # y = y.item()
