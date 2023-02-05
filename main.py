@@ -14,6 +14,7 @@ import wandb
 import logging
 import csv
 import yaml
+import multiprocessing as mp
 
 logger = logging.getLogger("wandb")
 logger.setLevel(logging.ERROR)
@@ -341,6 +342,7 @@ Num test queries: {}, Num test samples: {}".format(
         # eval_alg(alg, eval_fns, unseeneval, "unseeneval")
 
 if __name__ == "__main__":
+    mp.set_start_method('spawn')
     cfg = {}
     args = read_flags()
     main()

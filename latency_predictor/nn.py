@@ -204,9 +204,12 @@ class NN(LatencyPredictor):
                 self.cfg["sys_net"],
                 subplan_ests=self.subplan_ests,
                 )
+
         self.traindl = torch.utils.data.DataLoader(self.ds,
                 batch_size=self.batch_size,
-                shuffle=True, collate_fn=self.collate_fn)
+                shuffle=True, collate_fn=self.collate_fn,
+                # num_workers=8,
+                )
 
         self.eval_loaders = {}
         self.eval_ds = {}
@@ -216,7 +219,7 @@ class NN(LatencyPredictor):
                 batch_size=self.batch_size,
                 shuffle=False, collate_fn=self.collate_fn)
 
-        if same_env_unseen is not None:
+        if same_env_unseen is not None and len(same_env_unseen) != 0:
             ds = QueryPlanDataset(same_env_unseen,
                     sys_logs,
                     self.featurizer,
@@ -252,10 +255,7 @@ class NN(LatencyPredictor):
         with torch.no_grad():
             for data in dl:
                 yhat = self.net(data)
-                # yhat = yhat.squeeze()
                 y = data.y
-                # print(y.shape, yhat.shape)
-                # pdb.set_trace()
                 assert yhat.shape == y.shape
                 y = y.item()
                 trueys.append(self.featurizer.unnormalizeY(y))
