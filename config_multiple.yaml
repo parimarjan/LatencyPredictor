@@ -1,0 +1,31 @@
+%YAML 1.2
+---
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/multiple"
+tags: "t7xlarge-gp3-a,t7xlarge-gp3-c,t7xlarge-gp3-e-stressng,t7xlarge-gp3-b,t7xlarge-gp3-d"
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 1
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 4
+  subplan_ests: 0
+sys_net:
+  # mlp / transformer
+  arch: "transformer"
+  hl: 256
+  num_layers: 4
+  num_heads: 16
+  log_prev_secs: 200
+  log_skip: 2
+
+factorized_net:
+  arch: "mlp" # dot product
+  hl: 256
+  num_layers: 2
+  embedding_size: 128
+...
