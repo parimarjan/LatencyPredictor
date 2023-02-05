@@ -61,12 +61,20 @@ class FactorizedLatencyNet(torch.nn.Module):
             pass
 
     def forward(self, data):
-        xplan = self.gcn_net(data)
+        # xplan = self.gcn_net(data)
+        # xsys = self.log_net(data)
+        xplan = self.gcn_net(data["graph"])
         xsys = self.log_net(data)
+
+        # print(xplan.shape)
+        # print(xsys.shape)
+        # pdb.set_trace()
 
         if self.fact_arch == "mlp":
             xplan = xplan.squeeze()
-            emb_out = torch.cat([xplan, xsys])
+            ## old, w/ batch = 1
+            # emb_out = torch.cat([xplan, xsys])
+            emb_out = torch.cat([xsys,xplan], axis=1)
             out = self.fact_net(emb_out)
 
         elif self.fact_arch == "dot":
@@ -91,8 +99,9 @@ class TransformerLogs(torch.nn.Module):
         x = data["sys_logs"]
         x = x.to(device, non_blocking=True)
 
-        # batch size is implicitly 1
-        x = x.unsqueeze(dim=0)
+        if len(x.shape) == 2:
+            # batch size is implicitly 1
+            x = x.unsqueeze(dim=0)
         return self.net(x).squeeze(dim=0)
 
 class TSTLogs(torch.nn.Module):
@@ -196,7 +205,6 @@ class SimpleGCN(torch.nn.Module):
             self.conv2 = GCNConv(hl1, hl1)
             self.conv3 = GCNConv(hl1, hl1)
             self.conv4 = GCNConv(hl1, hl1)
-
         else:
             assert False
 
@@ -244,9 +252,6 @@ class SimpleGCN(torch.nn.Module):
             x = self.lin3(x)
             return x
         else:
-            # TODO: decide what kind of pooling we want to use;
-            # using sum, as it seems to make sense in query cost context?
-            # need to do pooling before applying linear layers!
             prev_idx = 0
             xs = []
             gfs = []

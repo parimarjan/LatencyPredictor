@@ -222,6 +222,7 @@ class RegressionTransformer(nn.Module):
         """
         # tokens = x
         b, t, e = x.size()
+
         positions = self.pos_embedding(torch.arange(t).to(device))[None, :, :].expand(b,
                 t, e).to(device)
 

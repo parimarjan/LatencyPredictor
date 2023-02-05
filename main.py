@@ -32,7 +32,7 @@ def get_alg(alg, cfg):
                 final_act = args.final_act,
                 use_wandb = args.use_wandb,
                 log_transform_y = args.log_transform_y,
-                batch_size = args.batch_size,
+                # batch_size = args.batch_size,
                 global_feats = args.global_feats,
                 # tags = args.tags,
                 seed = args.seed, test_size = args.test_size,
@@ -59,7 +59,6 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
     truey = [plan.graph["latency"] for plan in plans]
     ests = np.array(ests)
     truey = np.array(truey)
-    print("Num true: ", len(truey))
 
     eval_time = round(time.time() - start, 2)
     print("evaluating alg {} took: {} seconds".format(alg_name, eval_time))
@@ -151,8 +150,8 @@ def read_flags():
     parser.add_argument("--wandb_tags", type=str, required=False,
             default=None, help="additional tags for wandb logs")
 
-    parser.add_argument("--batch_size", type=int, required=False,
-            default=1, help="""batch size for training gcn models.""")
+    # parser.add_argument("--batch_size", type=int, required=False,
+            # default=4, help="""batch size for training gcn models.""")
 
     parser.add_argument("--log_transform_y", type=int, required=False,
             default=0, help="predicting log(latency) instead of latency")
@@ -314,11 +313,6 @@ Num test queries: {}, Num test samples: {}".format(
     for l in eval_fn_names:
         eval_fns.append(get_eval_fn(l))
 
-    # sys_log_feats = {}
-    # sys_log_feats["sys_log_prev_secs"] = 100
-    # sys_log_feats["sys_log_avg"] = True
-    # sys_log_feats["sys_log_skip"] = 1
-
     alg.train(train_plans,
             sys_logs,
             featurizer,
@@ -328,7 +322,9 @@ Num test queries: {}, Num test samples: {}".format(
             )
 
     eval_alg(alg, eval_fns, train_plans, sys_logs, "train")
-    eval_alg(alg, eval_fns, test_plans, sys_logs, "train")
+
+    if len(test_plans) > 0:
+        eval_alg(alg, eval_fns, test_plans, sys_logs, "test")
 
     # if len(valdata["lats"]) > 0:
         # eval_alg(alg, eval_fns, valdata, "val")

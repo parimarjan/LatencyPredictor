@@ -49,6 +49,8 @@ class QueryPlanDataset(data.Dataset):
             lat = G.graph["latency"]
 
             lat = self.featurizer.normalizeY(lat)
+            curx = {}
+
             curfeats = self.featurizer.get_pytorch_geometric_features(G,
                     self.subplan_ests)
 
@@ -70,8 +72,13 @@ class QueryPlanDataset(data.Dataset):
                                                     self.log_avg)
 
             ## syslogs
-            curfeats["sys_logs"] = logf
-            data.append(curfeats)
+            # curfeats["sys_logs"] = logf
+            # data.append(curfeats)
+
+            curx["graph"] = curfeats
+            curx["sys_logs"] = logf
+
+            data.append(curx)
 
         print("Skipped {} plans because sys logs missing".format(skip))
         return data

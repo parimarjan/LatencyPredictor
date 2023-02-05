@@ -30,6 +30,18 @@ def percentile_help(q):
 def collate_fn_gcn(Z):
     return torch_geometric.data.Batch.from_data_list(Z).to(device)
 
+def collate_fn_gcn2(X):
+    # Z = X["graph"]
+    # X["graph"] = torch_geometric.data.Batch.from_data_list(X["graph"]).to(device)
+    # print(X["sys"].shape)
+    # print(type(X))
+    Z = [x["graph"] for x in X]
+    S = [x["sys_logs"] for x in X]
+    ret = {}
+    ret["graph"] = torch_geometric.data.Batch.from_data_list(Z).to(device)
+    ret["sys_logs"] = torch.stack(S)
+    return ret
+
 def qloss_torch(yhat, ytrue):
     min_est = np.array([0.1]*len(yhat))
     assert yhat.shape == ytrue.shape
@@ -52,7 +64,8 @@ class NN(LatencyPredictor):
         for k, val in cfg["common"].items():
             self.__setattr__(k, val)
 
-        self.collate_fn = collate_fn_gcn
+        # self.collate_fn = collate_fn_gcn
+        self.collate_fn = collate_fn_gcn2
 
         if self.loss_fn_name == "mse":
             self.loss_fn = torch.nn.MSELoss()
@@ -137,7 +150,8 @@ class NN(LatencyPredictor):
         epoch_losses = []
 
         for bidx, data in enumerate(self.traindl):
-            y = data.y.to(device)
+            # y = data.y.to(device)
+            y = data["graph"].y.to(device)
             yhat = self.net(data)
 
             if self.subplan_ests:
@@ -155,6 +169,7 @@ class NN(LatencyPredictor):
                     # loss2 = self.loss_fn(ysum, ytruesum)
                     # loss = loss + loss2
             else:
+                yhat = yhat.squeeze()
                 assert y.shape == yhat.shape
                 loss = self.loss_fn(yhat, y)
 
@@ -208,7 +223,6 @@ class NN(LatencyPredictor):
         self.traindl = torch.utils.data.DataLoader(self.ds,
                 batch_size=self.batch_size,
                 shuffle=True, collate_fn=self.collate_fn,
-                # num_workers=8,
                 )
 
         self.eval_loaders = {}
@@ -241,7 +255,8 @@ class NN(LatencyPredictor):
                 weight_decay=self.weight_decay)
 
         for self.epoch in range(self.num_epochs):
-            if self.epoch % self.eval_epoch == 0:
+            if self.epoch % self.eval_epoch == 0 \
+                    and self.epoch != 0:
                 for st in self.eval_loaders.keys():
                     self.periodic_eval(st)
 
@@ -255,16 +270,27 @@ class NN(LatencyPredictor):
         with torch.no_grad():
             for data in dl:
                 yhat = self.net(data)
-                y = data.y
+                # y = data.y
+                # yhat = yhat.squeeze()
+
+                y = data["graph"].y
+
+                # y = data.y
+                # y = y.item()
+                # trueys.append(self.featurizer.unnormalizeY(y))
+
                 assert yhat.shape == y.shape
-                y = y.item()
-                trueys.append(self.featurizer.unnormalizeY(y))
+
+                for gi in range(data["graph"].num_graphs):
+                    trueys.append(self.featurizer.unnormalizeY(y[gi].item()))
 
                 if self.subplan_ests:
                     assert False
                 else:
-                    yh = yhat.item()
-                    res.append(self.featurizer.unnormalizeY(yh))
+                    # yh = yhat.item()
+                    # res.append(self.featurizer.unnormalizeY(yh))
+                    for gi in range(data["graph"].num_graphs):
+                        res.append(self.featurizer.unnormalizeY(yhat[gi].item()))
 
         self.net.train()
         return res,trueys
