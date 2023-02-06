@@ -328,11 +328,13 @@ def get_plans(df):
 def extract_previous_logs(cur_sys_logs, start_time,
                         prev_secs,
                         skip_logs,
+                        max_log_len,
                         ):
 
     tmp = cur_sys_logs[(cur_sys_logs["timestamp"] <= start_time) & \
             (cur_sys_logs["timestamp"] >= start_time - prev_secs)]
     tmp = tmp.iloc[::skip_logs, :]
+    tmp = tmp.tail(max_log_len)
 
     return tmp
 

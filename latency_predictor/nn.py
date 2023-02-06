@@ -31,12 +31,21 @@ def collate_fn_gcn(Z):
     return torch_geometric.data.Batch.from_data_list(Z).to(device)
 
 def collate_fn_gcn2(X):
-    # Z = X["graph"]
-    # X["graph"] = torch_geometric.data.Batch.from_data_list(X["graph"]).to(device)
-    # print(X["sys"].shape)
-    # print(type(X))
     Z = [x["graph"] for x in X]
-    S = [x["sys_logs"] for x in X]
+
+    S = []
+    # maxrows = 0
+    # for x in X:
+        # rows = x["sys_logs"].shape[0]
+        # if rows > maxrows:
+            # maxrows = rows
+    for x in X:
+        x = x["sys_logs"]
+        rows = x.shape[0]
+        to_pad = MAX_LOG_LEN-rows
+        S.append(torch.nn.functional.pad(x,(0,0,to_pad,0),
+                mode="constant",value=0))
+
     ret = {}
     ret["graph"] = torch_geometric.data.Batch.from_data_list(Z).to(device)
     ret["sys_logs"] = torch.stack(S)

@@ -8,7 +8,7 @@ dataset:
   input_train: ''
   input_test: ''
 common:
-  batch_size: 1
+  batch_size: 16
 plan_net:
   arch: "gcn"
   hl: 512
@@ -17,9 +17,9 @@ plan_net:
 sys_net:
   # mlp / transformer
   arch: "transformer"
-  hl: 256
-  num_layers: 4
-  num_heads: 16
+  hl: 512
+  num_layers: 8
+  num_heads: 128
   log_prev_secs: 200
   log_skip: 2
 

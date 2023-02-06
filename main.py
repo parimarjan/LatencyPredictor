@@ -196,7 +196,7 @@ def read_flags():
             default="mse")
 
     parser.add_argument("--arch", type=str, required=False,
-            default="gcn", help="tcnn/gcn; architecture of trained neural net.")
+            default="factorized", help="tcnn/gcn; architecture of trained neural net.")
 
     parser.add_argument("--global_feats", type=int, required=False,
             default=0)

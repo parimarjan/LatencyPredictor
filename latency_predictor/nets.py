@@ -6,6 +6,7 @@ import pdb
 
 from latency_predictor.transformer import RegressionTransformer
 from tst import Transformer
+from latency_predictor.dataset import MAX_LOG_LEN
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -45,7 +46,7 @@ class FactorizedLatencyNet(torch.nn.Module):
                     cfg["sys_net"]["num_layers"],
                     cfg["sys_net"]["hl"],
                     cfg["sys_net"]["num_heads"],
-                    int(cfg["sys_net"]["log_prev_secs"] / 10),
+                    MAX_LOG_LEN,
                     )
 
         self.log_net.to(device)
@@ -61,14 +62,8 @@ class FactorizedLatencyNet(torch.nn.Module):
             pass
 
     def forward(self, data):
-        # xplan = self.gcn_net(data)
-        # xsys = self.log_net(data)
-        xplan = self.gcn_net(data["graph"])
+        xplan = self.gcn_net(data)
         xsys = self.log_net(data)
-
-        # print(xplan.shape)
-        # print(xsys.shape)
-        # pdb.set_trace()
 
         if self.fact_arch == "mlp":
             xplan = xplan.squeeze()
@@ -223,6 +218,7 @@ class SimpleGCN(torch.nn.Module):
             self.lin4 = torch.nn.Linear(hl1, self.out_feats)
 
     def forward(self, data):
+        data = data["graph"]
         x, edge_index = data.x, data.edge_index
         x = x.to(device, non_blocking=True)
 

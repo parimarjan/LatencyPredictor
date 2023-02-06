@@ -8,6 +8,8 @@ import copy
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+MAX_LOG_LEN=10
+
 class QueryPlanDataset(data.Dataset):
     def __init__(self, plans,
             syslogs,
@@ -60,10 +62,15 @@ class QueryPlanDataset(data.Dataset):
             ## extra info;
             curfeats["info"] = info
             cur_logs = sys_logs[G.graph["tag"]]
+            # max_log_len = int(self.log_prev_secs / (10*self.log_skip))
+            # print("max log len: ", max_log_len)
+
             prev_logs = extract_previous_logs(cur_logs, G.graph["start_time"],
-                                    prev_secs=self.log_prev_secs,
-                                    skip_logs = self.log_skip,
+                                    self.log_prev_secs,
+                                    self.log_skip,
+                                    MAX_LOG_LEN,
                                     )
+
             if len(prev_logs) == 0:
                 skip += 1
                 continue
