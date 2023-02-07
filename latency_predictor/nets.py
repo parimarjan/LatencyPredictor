@@ -73,7 +73,8 @@ class FactorizedLatencyNet(torch.nn.Module):
             out = self.fact_net(emb_out)
 
         elif self.fact_arch == "dot":
-            pass
+            out = torch.bmm(xsys.view(xsys.shape[0], 1, 128),
+                    xplan.view(xplan.shape[0], 128, 1)).squeeze()
 
         return out
 
