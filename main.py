@@ -139,11 +139,10 @@ def read_flags():
     # parser.add_argument("--tags", type=str, required=False,
             # default="t7xlarge-gp3-d",
             # help="tags to use for training data")
-    parser.add_argument("--use_eval_tags", type=int, required=False,
-            default=0, help="0 or 1. use additional tags for evaluating models or not.")
-
-    parser.add_argument("--eval_tags", type=str, required=False,
-            default=None, help="additional tag to use for evaluating the models. Leave None to use all possible tags")
+    # parser.add_argument("--use_eval_tags", type=int, required=False,
+            # default=0, help="0 or 1. use additional tags for evaluating models or not.")
+    # parser.add_argument("--eval_tags", type=str, required=False,
+            # default=None, help="additional tag to use for evaluating the models. Leave None to use all possible tags")
 
     parser.add_argument("--use_wandb", type=int, required=False,
             default=1, help="")
@@ -203,6 +202,34 @@ def read_flags():
 
     return parser.parse_args()
 
+def load_dfs(dirs, tags):
+    tags = tags.split(",")
+    dirs = dirs.split(",")
+
+    all_dfs = []
+    sys_logs = {}
+
+    for curdir in dirs:
+        for tag in tags:
+            cdf,clogs = load_all_logs(tag, curdir)
+
+            if len(clogs) == 0:
+                continue
+
+            maxlogtime = max(clogs["timestamp"])
+            try:
+                cdf = cdf[cdf["start_time"] <= maxlogtime]
+            except Exception as e:
+                print(tag, e)
+                continue
+
+            assert tag not in sys_logs
+            sys_logs[tag] = clogs
+            cdf["tag"] = tag
+            all_dfs.append(cdf)
+
+    return pd.concat(all_dfs), sys_logs
+
 def main():
     global args,cfg
 
@@ -223,63 +250,44 @@ def main():
         wandb_tags = ["1a"]
         if args.wandb_tags is not None:
             wandb_tags += args.wandb_tags.split(",")
-
+        wandbcfg.update(vars(args))
         wandb.init("learned-latency", config=wandbcfg,
                 tags=wandb_tags)
-        wandb.config.update(vars(args))
 
-    tags = cfg["tags"].split(",")
-    print("Using tags: ", tags)
+        # wandb.config.update(vars(args))
 
-    all_dfs = []
-    sys_logs = {}
-    qnames = set()
-
-    for tag in tags:
-        cdf,clogs = load_all_logs(tag, cfg["traindata_dir"])
-        if len(clogs) == 0:
-            continue
-
-        maxlogtime = max(clogs["timestamp"])
-        try:
-            cdf = cdf[cdf["start_time"] <= maxlogtime]
-        except Exception as e:
-            print(tag, e)
-            continue
-
-        sys_logs[tag] = clogs
-        cdf["tag"] = tag
-
-        all_dfs.append(cdf)
-        qnames = qnames.union(set(cdf["qname"]))
+    print("Using tags: ", cfg["tags"].split(","))
+    df,sys_logs = load_dfs(cfg["traindata_dir"], cfg["tags"])
 
     random.seed(args.seed)
+    qnames = list(set(df["qname"]))
     # split into train / test data
     test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
     train_qnames = [q for q in qnames if q not in test_qnames]
 
-    train_dfs,test_dfs,train_plans,test_plans = [],[],[],[]
-    train_samples,test_samples = 0,0
+    train_df = df[df["qname"].isin(train_qnames)]
+    test_df = df[df["qname"].isin(test_qnames)]
+    train_plans = get_plans(train_df)
+    test_plans = get_plans(test_df)
 
-    for df in all_dfs:
+    if cfg["use_eval_tags"]:
+        ## new envs
+        df,sys_logs2 = load_dfs(cfg["eval_dirs"], cfg["eval_tags"])
+        sys_logs.update(sys_logs2)
 
-        train_dfs.append(df[df["qname"].isin(train_qnames)])
-        # train_plans.append(get_plans(train_dfs[-1]))
-        train_plans += get_plans(train_dfs[-1])
-        test_dfs.append(df[df["qname"].isin(test_qnames)])
-        # test_plans.append(get_plans(test_dfs[-1]))
-        test_plans += get_plans(test_dfs[-1])
+        seendf = df[df["qname"].isin(train_qnames)]
+        unseendf = df[~df["qname"].isin(train_qnames)]
+        new_env_seen_plans = get_plans(seendf)
+        new_env_unseen_plans = get_plans(unseendf)
+    else:
+        new_env_seen_plans = []
+        new_env_unseen_plans = []
 
-        train_samples += len(train_dfs[-1])
-        test_samples += len(test_dfs[-1])
-
-    new_env_seen = None
-    new_env_unseen = None
-
-    print("Num training queries: {}, Num training samples: {},\
-Num test queries: {}, Num test samples: {}".format(
-        len(train_qnames), train_samples, len(test_qnames),
-        test_samples))
+    print("Training queries: {}, Training plans: {},\
+Test queries: {}, Test Plans: {}, New Env Seen Plans: {}\
+New Env Unseen Plans: {}".format(
+        len(train_qnames), len(train_plans), len(test_qnames),
+        len(test_plans),len(new_env_seen_plans),len(new_env_unseen_plans)))
 
     featurizer = Featurizer(train_plans,
                             sys_logs,
@@ -317,8 +325,8 @@ Num test queries: {}, Num test samples: {}".format(
             sys_logs,
             featurizer,
             same_env_unseen = test_plans,
-            new_env_seen= new_env_seen,
-            new_env_unseen = new_env_unseen,
+            new_env_seen= new_env_seen_plans,
+            new_env_unseen = new_env_unseen_plans,
             )
 
     eval_alg(alg, eval_fns, train_plans, sys_logs, "train")

@@ -215,9 +215,24 @@ class NN(LatencyPredictor):
             if self.use_wandb:
                 wandb.log({stat_name: loss, "epoch":self.epoch})
 
+    def setup_workload(self, kind, plans, sys_logs):
+        if len(plans) != 0:
+            ds = QueryPlanDataset(plans,
+                    sys_logs,
+                    self.featurizer,
+                    self.cfg["sys_net"],
+                    subplan_ests=self.subplan_ests,
+                    )
+            dl = torch.utils.data.DataLoader(ds,
+                    batch_size=self.batch_size,
+                    shuffle=False, collate_fn=self.collate_fn)
+
+            self.eval_ds[kind] = ds
+            self.eval_loaders[kind] = dl
+
     def train(self, train_plans, sys_logs, featurizer,
-            same_env_unseen=None,
-            new_env_seen = None, new_env_unseen = None,
+            same_env_unseen=[],
+            new_env_seen = [], new_env_unseen = [],
             ):
 
         self.featurizer = featurizer
@@ -243,19 +258,23 @@ class NN(LatencyPredictor):
                 batch_size=self.batch_size,
                 shuffle=False, collate_fn=self.collate_fn)
 
-        if same_env_unseen is not None and len(same_env_unseen) != 0:
-            ds = QueryPlanDataset(same_env_unseen,
-                    sys_logs,
-                    self.featurizer,
-                    self.cfg["sys_net"],
-                    subplan_ests=self.subplan_ests,
-                    )
-            dl = torch.utils.data.DataLoader(ds,
-                    batch_size=self.batch_size,
-                    shuffle=False, collate_fn=self.collate_fn)
+        self.setup_workload("same_env_unseen", same_env_unseen, sys_logs)
+        self.setup_workload("new_env_seen", new_env_seen, sys_logs)
+        self.setup_workload("new_env_unseen", new_env_unseen, sys_logs)
 
-            self.eval_ds["same_env_unseen"] = ds
-            self.eval_loaders["same_env_unseen"] = dl
+        # if len(same_env_unseen) != 0:
+            # ds = QueryPlanDataset(same_env_unseen,
+                    # sys_logs,
+                    # self.featurizer,
+                    # self.cfg["sys_net"],
+                    # subplan_ests=self.subplan_ests,
+                    # )
+            # dl = torch.utils.data.DataLoader(ds,
+                    # batch_size=self.batch_size,
+                    # shuffle=False, collate_fn=self.collate_fn)
+
+            # self.eval_ds["same_env_unseen"] = ds
+            # self.eval_loaders["same_env_unseen"] = dl
 
         ## TODO: initialize for other datasets
 

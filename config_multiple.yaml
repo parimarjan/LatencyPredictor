@@ -2,7 +2,11 @@
 ---
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/multiple"
-tags: "t7xlarge-gp3-a,t7xlarge-gp3-c,t7xlarge-gp3-e-stressng,t7xlarge-gp3-b,t7xlarge-gp3-d"
+tags: "t7xlarge-gp3-c,t7xlarge-gp3-e-stressng,t7xlarge-gp3-d"
+
+use_eval_tags : 1
+eval_dirs : "LatencyCollectorResults/multiple,LatencyCollectorResults"
+eval_tags: "CEB-c7large-gp2,CEB-t2medium-gp2,CEB-t2small-gp3,JOB-t2medium,JOB-t2micro,m5ad-gp2,CEB-c7xlarge-gp2,CEB-t2medium-gp3,JOB-c4x,JOB-t2medium-gp3,JOB-t2small"
 
 dataset:
   input_train: ''

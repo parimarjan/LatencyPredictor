@@ -297,6 +297,9 @@ def load_sys_logs(inp_dir):
             continue
 
     keys = list(logdfs.keys())
+    if len(keys) == 0:
+        return []
+
     curdf = logdfs[keys[0]]
 
     for ki in range(1,len(keys)):
@@ -342,7 +345,8 @@ def extract_previous_logs(cur_sys_logs, start_time,
 def load_all_logs(inp_tag, inp_dir):
 
     inp_dir = os.path.join(inp_dir, inp_tag)
-    assert os.path.exists(inp_dir)
+    if not os.path.exists(inp_dir):
+        return [],[]
 
     rtfns = glob.iglob(inp_dir + "/*/results/Runtime*.csv")
     dfs = []
@@ -360,6 +364,9 @@ def load_all_logs(inp_tag, inp_dir):
     df["inp_tag"] = inp_tag
 
     logdfs = load_sys_logs(inp_dir)
+    if len(logdfs) == 0:
+        return df,[]
+
     logdfs["inp_tag"] = inp_tag
 
     return df, logdfs
