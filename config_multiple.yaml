@@ -32,5 +32,5 @@ factorized_net:
   arch: "dot"
   hl: 256
   num_layers: 2
-  embedding_size: 128
+  embedding_size: 16
 ...

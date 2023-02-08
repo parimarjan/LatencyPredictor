@@ -228,6 +228,9 @@ def load_dfs(dirs, tags):
             cdf["tag"] = tag
             all_dfs.append(cdf)
 
+    if len(all_dfs) == 0:
+        return [],[]
+
     return pd.concat(all_dfs), sys_logs
 
 def main():

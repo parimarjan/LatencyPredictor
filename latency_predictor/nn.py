@@ -21,7 +21,8 @@ from latency_predictor.algs import *
 import pickle
 import wandb
 
-PERCENTILES_TO_SAVE = [50, 99]
+# PERCENTILES_TO_SAVE = [50, 99]
+PERCENTILES_TO_SAVE = []
 def percentile_help(q):
     def f(arr):
         return np.percentile(arr, q)
@@ -294,7 +295,7 @@ class NN(LatencyPredictor):
     def _eval_loader(self, ds, dl):
         res = []
         trueys = []
-        self.net.eval()
+        # self.net.eval()
 
         with torch.no_grad():
             for data in dl:
@@ -322,7 +323,7 @@ class NN(LatencyPredictor):
                     for gi in range(data["graph"].num_graphs):
                         res.append(self.featurizer.unnormalizeY(yhat[gi].item()))
 
-        self.net.train()
+        # self.net.train()
         return res,trueys
 
     def test(self, plans, sys_logs):
