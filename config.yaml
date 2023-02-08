@@ -11,11 +11,15 @@ eval_tags : "CEB-t2medium-gp3"
 
 #eval_tags: "CEB-c7large-gp2,CEB-t2medium-gp2,CEB-t2small-gp3,JOB-t2medium,JOB-t2micro,m5ad-gp2,CEB-c7xlarge-gp2,CEB-t2medium-gp3,JOB-c4x,JOB-t2medium-gp3,JOB-t2small"
 
+use_eval_tags : 1
+eval_dirs : "LatencyCollectorResults/multiple,LatencyCollectorResults"
+eval_tags: "CEB-t2small-gp3,CEB-t2medium-gp3,JOB-t2medium-gp3"
+
 dataset:
   input_train: ''
   input_test: ''
 common:
-  batch_size: 4
+  batch_size: 16
 plan_net:
   arch: "gcn"
   hl: 512
@@ -35,5 +39,5 @@ factorized_net:
   #arch: "dot"
   hl: 256
   num_layers: 2
-  embedding_size: 128
+  embedding_size: 16
 ...
