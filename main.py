@@ -334,16 +334,11 @@ New Env Unseen Plans: {}".format(
     if len(test_plans) > 0:
         eval_alg(alg, eval_fns, test_plans, sys_logs, "test")
 
-    # if len(valdata["lats"]) > 0:
-        # eval_alg(alg, eval_fns, valdata, "val")
-    # if len(testdata["lats"]) > 0:
-        # eval_alg(alg, eval_fns, testdata, "test")
+    if len(new_env_seen_plans) > 0:
+        eval_alg(alg, eval_fns, new_env_seen_plans, "new_env_seen")
 
-    # if seeneval is not None:
-        # eval_alg(alg, eval_fns, seeneval, "seeneval")
-
-    # if unseeneval is not None:
-        # eval_alg(alg, eval_fns, unseeneval, "unseeneval")
+    if len(new_env_seen_plans) > 0:
+        eval_alg(alg, eval_fns, new_env_unseen_plans, "new_env_seen")
 
 if __name__ == "__main__":
     mp.set_start_method('spawn')

@@ -124,10 +124,10 @@ class Featurizer():
             if not is_float(min(df[key])):
                 continue
 
-            self.idx_starts[key] = cur_feature_idx
-
             # cvs = [float(v0) for v0 in v]
             if self.normalizer == "min-max":
+                if max(df[key]) - min(df[key]) == 0:
+                    continue
                 self.normalization_stats[key] = (min(df[key]), max(df[key]))
             elif self.normalizer == "std":
                 self.normalization_stats[key] = (np.mean(df[key].values),
@@ -135,6 +135,7 @@ class Featurizer():
             else:
                 assert False
 
+            self.idx_starts[key] = cur_feature_idx
             self.idx_types[key] = "cont"
             self.idx_lens[key] = 1
             cur_feature_idx += 1
