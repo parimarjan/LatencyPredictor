@@ -35,17 +35,15 @@ def collate_fn_gcn2(X):
     Z = [x["graph"] for x in X]
 
     S = []
-    # maxrows = 0
-    # for x in X:
-        # rows = x["sys_logs"].shape[0]
-        # if rows > maxrows:
-            # maxrows = rows
     for x in X:
         x = x["sys_logs"]
-        rows = x.shape[0]
-        to_pad = MAX_LOG_LEN-rows
-        S.append(torch.nn.functional.pad(x,(0,0,to_pad,0),
-                mode="constant",value=0))
+        if len(x.shape) == 1:
+            S.append(x)
+        else:
+            rows = x.shape[0]
+            to_pad = MAX_LOG_LEN-rows
+            S.append(torch.nn.functional.pad(x,(0,0,to_pad,0),
+                    mode="constant",value=0))
 
     ret = {}
     ret["graph"] = torch_geometric.data.Batch.from_data_list(Z).to(device)
@@ -101,13 +99,15 @@ class NN(LatencyPredictor):
         self.log_stat_fmt = "{samples_type}-{loss_type}"
 
     def _init_net(self):
-        if self.arch == "gcn":
+        if self.arch in ["gcn","gat"]:
             self.net = SimpleGCN(self.featurizer.num_features,
                     self.featurizer.num_global_features,
                     self.hl1, self.num_conv_layers,
                     final_act=self.final_act,
                     subplan_ests = self.subplan_ests,
                     out_feats=1,
+                    dropout=self.cfg["plan_net"]["dropout"],
+                    arch=self.cfg["plan_net"]["arch"],
                     )
         elif self.arch == "avg":
             self.net = LogAvgRegression(
@@ -150,10 +150,13 @@ class NN(LatencyPredictor):
             self.log(errors, eval_fn.__str__(), samples_type)
             losses.append(np.mean(errors))
 
-        stat_update = "{}:".format(samples_type)
+        tot_time = round(time.time()-start, 2)
+        stat_update = "{}:took {}, ".format(samples_type, tot_time)
         for i, eval_fn in enumerate(self.eval_fns):
             stat_update += eval_fn.__str__() + ": " + str(losses[i]) + "; "
+
         print(stat_update)
+
 
     def _train_one_epoch(self):
         start = time.time()
@@ -198,6 +201,12 @@ class NN(LatencyPredictor):
                 self.epoch, np.mean(epoch_losses), time.time()-start))
 
         self.log(epoch_losses, "train_loss", "train")
+
+        if self.cfg["sys_net"]["save_weights"]:
+            torch.save(self.net.sys_net.state_dict(),
+                    self.cfg["sys_net"]["pretrained_fn"])
+            print("saved: ", self.cfg["sys_net"]["pretrained_fn"])
+
 
     def log(self, losses, loss_type, samples_type):
         for i, func in enumerate(self.summary_funcs):
@@ -281,7 +290,18 @@ class NN(LatencyPredictor):
 
         self._init_net()
         print(self.net)
-        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr,
+
+        if self.cfg["sys_net"]["pretrained"]:
+            print("pretrained!")
+            pdb.set_trace()
+
+            self.net.sys_net.load_state_dict(torch.load(
+                    self.cfg["sys_net"]["pretrained_fn"]))
+
+            for parameter in self.net.sys_net.parameters():
+                parameter.requires_grad = False
+
+        self.optimizer = torch.optim.AdamW(self.net.parameters(), lr=self.lr,
                 weight_decay=self.weight_decay)
 
         for self.epoch in range(self.num_epochs):
@@ -296,6 +316,7 @@ class NN(LatencyPredictor):
         res = []
         trueys = []
         # self.net.eval()
+        # self.net.gcn_net.eval()
 
         with torch.no_grad():
             for data in dl:
@@ -324,6 +345,7 @@ class NN(LatencyPredictor):
                         res.append(self.featurizer.unnormalizeY(yhat[gi].item()))
 
         # self.net.train()
+        # self.net.gcn_net.train()
         return res,trueys
 
     def test(self, plans, sys_logs):

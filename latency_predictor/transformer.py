@@ -185,7 +185,7 @@ class RegressionTransformer(nn.Module):
     """
 
     def __init__(self, emb, heads, depth, seq_length, num_classes,
-            max_pool=True, dropout=0.0, wide=True):
+            max_pool=True, dropout=0.2, wide=True):
         """
         :param emb: Embedding dimension
         :param heads: nr. of attention heads

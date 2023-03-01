@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv,GATConv
 from torch import nn
 import pdb
 
@@ -22,7 +22,7 @@ class FactorizedLatencyNet(torch.nn.Module):
         super(FactorizedLatencyNet, self).__init__()
 
         self.fact_arch = cfg["factorized_net"]["arch"]
-        if cfg["plan_net"]["arch"] == "gcn":
+        if cfg["plan_net"]["arch"] in ["gcn", "gat"]:
             self.gcn_net = SimpleGCN(num_plan_features,
                     num_global_features,
                     cfg["plan_net"]["hl"],
@@ -30,17 +30,19 @@ class FactorizedLatencyNet(torch.nn.Module):
                     final_act="none",
                     subplan_ests = cfg["plan_net"]["subplan_ests"],
                     out_feats=cfg["factorized_net"]["embedding_size"],
+                    dropout=cfg["plan_net"]["dropout"],
+                    arch=cfg["plan_net"]["arch"],
                     )
 
         if cfg["sys_net"]["arch"] == "mlp":
-            self.log_net = LogAvgRegression(
+            self.sys_net = LogAvgRegression(
                     num_sys_features,
                     cfg["factorized_net"]["embedding_size"],
                     cfg["sys_net"]["num_layers"],
                     cfg["sys_net"]["hl"]
                     )
         elif cfg["sys_net"]["arch"] == "transformer":
-            self.log_net = TransformerLogs(
+            self.sys_net = TransformerLogs(
                     num_sys_features,
                     cfg["factorized_net"]["embedding_size"],
                     cfg["sys_net"]["num_layers"],
@@ -49,7 +51,7 @@ class FactorizedLatencyNet(torch.nn.Module):
                     MAX_LOG_LEN,
                     )
 
-        self.log_net.to(device)
+        self.sys_net.to(device)
 
         if cfg["factorized_net"]["arch"] == "mlp":
             self.fact_net = SimpleRegression(
@@ -63,7 +65,7 @@ class FactorizedLatencyNet(torch.nn.Module):
 
     def forward(self, data):
         xplan = self.gcn_net(data)
-        xsys = self.log_net(data)
+        xsys = self.sys_net(data)
 
         if self.fact_arch == "mlp":
             xplan = xplan.squeeze()
@@ -175,15 +177,20 @@ class SimpleGCN(torch.nn.Module):
             num_conv_layers,
             subplan_ests=False,
             out_feats=1,
-            final_act="none"):
+            final_act="none",
+            dropout=0.2,
+            arch="gcn"
+            ):
         super(SimpleGCN, self).__init__()
 
+        self.dropout = dropout
         self.final_act=final_act
         self.subplan_ests = subplan_ests
         self.global_hl1 = 32
         self.num_features = num_features
         self.num_global_feats = num_global_feats
         self.out_feats = out_feats
+        self.att_heads = 16
 
         if self.num_global_feats == 0:
             self.global_feats = False
@@ -193,23 +200,34 @@ class SimpleGCN(torch.nn.Module):
         self.hl1 = hl1
         self.num_conv_layers = num_conv_layers
 
-        self.conv1 = GCNConv(num_features, hl1)
+        self.layers = nn.ModuleList()
 
-        if self.num_conv_layers == 2:
-            self.conv2 = GCNConv(hl1, hl1)
-        elif self.num_conv_layers == 4:
-            self.conv2 = GCNConv(hl1, hl1)
-            self.conv3 = GCNConv(hl1, hl1)
-            self.conv4 = GCNConv(hl1, hl1)
-        else:
-            assert False
+        if arch == "gcn":
+            conv1 = GCNConv(num_features, hl1)
+        elif arch == "gat":
+            conv1 = GATConv(num_features, hl1,
+                    heads = self.att_heads)
+
+        self.layers.append(conv1)
+
+        for i in range(self.num_conv_layers-1):
+            # self.layers.append(GCNConv(hl1,hl1))
+            if arch == "gcn":
+                self.layers.append(GCNConv(hl1,hl1))
+            elif arch == "gat":
+                self.layers.append(GATConv(self.att_heads*hl1, hl1,
+                    heads=self.att_heads))
 
         if self.subplan_ests:
             self.lin1 = torch.nn.Linear(hl1, hl1)
             self.lin2 = torch.nn.Linear(hl1, hl1)
             self.lin3 = torch.nn.Linear(hl1, self.out_feats)
         else:
-            self.lin1 = torch.nn.Linear(hl1, hl1)
+            if arch == "gcn":
+                self.lin1 = torch.nn.Linear(hl1, hl1)
+            elif arch == "gat":
+                self.lin1 = torch.nn.Linear(self.att_heads*hl1, hl1)
+
             if self.global_feats:
                 self.global1 = torch.nn.Linear(num_global_feats, self.global_hl1)
                 self.lin2 = torch.nn.Linear(hl1+self.global_hl1, hl1)
@@ -218,27 +236,19 @@ class SimpleGCN(torch.nn.Module):
             self.lin3 = torch.nn.Linear(hl1, hl1)
             self.lin4 = torch.nn.Linear(hl1, self.out_feats)
 
+        self.do = nn.Dropout(self.dropout)
+
     def forward(self, data):
         data = data["graph"]
         x, edge_index = data.x, data.edge_index
         x = x.to(device, non_blocking=True)
+        x = self.do(x)
 
         if self.global_feats:
             globalx = data.global_feats
 
-        x = self.conv1(x, edge_index)
-        x = F.relu(x)
-
-        if self.num_conv_layers == 2:
-            x = self.conv2(x, edge_index)
-            x = F.relu(x)
-        elif self.num_conv_layers == 4:
-            x = self.conv2(x, edge_index)
-            x = F.relu(x)
-            x = self.conv3(x, edge_index)
-            x = F.relu(x)
-            x = self.conv4(x, edge_index)
-            x = F.relu(x)
+        for layer in self.layers:
+            x = F.relu(layer(x, edge_index))
 
         if self.subplan_ests:
             assert data.num_graphs == 1

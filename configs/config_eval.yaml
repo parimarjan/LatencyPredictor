@@ -1,0 +1,48 @@
+%YAML 1.2
+---
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/new"
+#tags : "CEB-t2medium-gp3"
+#tags: "CEB-t2small-gp3,m5ad-gp2,CEB-c7xlarge-gp2,CEB-t2medium-gp2,JOB-t2small"
+#tags: "CEB-c7large-gp2,CEB-t2medium-gp2,CEB-t2small-gp3,JOB-t2medium,JOB-t2micro,m5ad-gp2,CEB-c7xlarge-gp2,CEB-t2medium-gp3,JOB-c4x,JOB-t2medium-gp3,JOB-t2small"
+tags: "exp1_single"
+
+use_eval_tags : 1
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : "exp2_single,exp3_single"
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 4
+  subplan_ests: 0
+  dropout : 0
+sys_net:
+  # mlp / transformer
+  #arch: "mlp"
+  arch: "transformer"
+  pretrained : 1
+  save_weights: 0
+  #pretrained_fn: "models/sys_net_transformer_debug.wt"
+  pretrained_fn: "models/sys_net_transformer_debug2.wt"
+  #pretrained_fn: "models/sys_net_transformer_eval_debug.wt"
+  #pretrained_fn: "models/sys_net_transformer_ergast_debug.wt"
+
+  hl: 256
+  num_layers: 4
+  num_heads: 16
+  log_prev_secs: 200
+  log_skip: 2
+
+factorized_net:
+  arch: "mlp" # dot product
+  #arch: "dot"
+  hl: 256
+  num_layers: 2
+  embedding_size: 128
+...

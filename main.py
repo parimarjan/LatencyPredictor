@@ -127,10 +127,10 @@ def read_flags():
     parser.add_argument("--y_normalizer", type=str, required=False,
             default="none", help="none,std,min-max; normalization scheme for target values")
     parser.add_argument("--normalizer", type=str, required=False,
-            default="min-max", help="none,std,min-max; normalization scheme for features.")
+            default="std", help="none,std,min-max; normalization scheme for features.")
 
     parser.add_argument("--feat_normalization_data", type=str, required=False,
-            default="train", help="train,all,wkey; what data to use for normalizing features")
+            default="all", help="train,all,wkey; what data to use for normalizing features")
     parser.add_argument("--y_normalization_data", type=str, required=False,
             default="train", help="train,all,wkey")
     parser.add_argument("--final_act", type=str, required=False,
@@ -254,6 +254,7 @@ def main():
         if args.wandb_tags is not None:
             wandb_tags += args.wandb_tags.split(",")
         wandbcfg.update(vars(args))
+
         wandb.init("learned-latency", config=wandbcfg,
                 tags=wandb_tags)
 
@@ -291,6 +292,11 @@ Test queries: {}, Test Plans: {}, New Env Seen Plans: {}\
 New Env Unseen Plans: {}".format(
         len(train_qnames), len(train_plans), len(test_qnames),
         len(test_plans),len(new_env_seen_plans),len(new_env_unseen_plans)))
+
+    if args.feat_normalization_data == "train":
+        feat_plans = train_plans
+    elif args.feat_normalization_data == "all":
+        feat_plans = train_plans + test_plans + new_env_seen_plans + new_env_unseen_plans
 
     featurizer = Featurizer(train_plans,
                             sys_logs,
@@ -338,13 +344,13 @@ New Env Unseen Plans: {}".format(
         eval_alg(alg, eval_fns, test_plans, sys_logs, "test")
 
     if len(new_env_seen_plans) > 0:
-        eval_alg(alg, eval_fns, new_env_seen_plans, "new_env_seen")
+        eval_alg(alg, eval_fns, new_env_seen_plans, sys_logs, "new_env_seen")
 
-    if len(new_env_seen_plans) > 0:
-        eval_alg(alg, eval_fns, new_env_unseen_plans, "new_env_seen")
+    if len(new_env_unseen_plans) > 0:
+        eval_alg(alg, eval_fns, new_env_unseen_plans, sys_logs, "new_env_unseen")
 
 if __name__ == "__main__":
-    mp.set_start_method('spawn')
+    # mp.set_start_method('spawn')
     cfg = {}
     args = read_flags()
     main()
