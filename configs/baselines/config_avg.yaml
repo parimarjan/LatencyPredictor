@@ -1,0 +1,46 @@
+%YAML 1.2
+---
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/new"
+### different splits here
+tags: "exp2_single,exp3_single,"
+use_eval_tags : 1
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : "exp1_single"
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 4
+  subplan_ests: 0
+  dropout : 0.2
+sys_net:
+  # mlp / transformer
+  arch: "avg"
+  #arch: "mlp"
+  #arch: "transformer"
+  pretrained : 0
+  use_pretrained_norms: 0
+  save_weights: 0
+  pretrained_fn: null
+
+  hl: 512
+  num_layers: 8
+  num_heads: 16
+  log_prev_secs: 600
+  log_skip: 2
+
+factorized_net:
+  arch: "mlp" # dot product
+  embedding_size: 128
+  #arch: "dot"
+  #embedding_size: 32
+  pretrained: 0
+  hl: 256
+  num_layers: 2
+...

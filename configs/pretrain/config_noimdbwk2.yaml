@@ -1,0 +1,42 @@
+%YAML 1.2
+---
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
+
+#tags: "exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch"
+tags: "exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp8_single_stack,exp9_single_tpch"
+
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : "exp2_single"
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 4
+  subplan_ests: 0
+  dropout : 0
+sys_net:
+  # mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  save_weights: 1
+  pretrained_fn: "models/all_noimdbwk2_128.wt"
+
+  hl: 512
+  num_layers: 8
+  num_heads: 16
+  log_prev_secs: 600
+  log_skip: 2
+
+factorized_net:
+  arch: "mlp" # dot product
+  embedding_size: 128
+  hl: 256
+  num_layers: 2
+...

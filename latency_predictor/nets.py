@@ -10,6 +10,9 @@ from latency_predictor.dataset import MAX_LOG_LEN
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+def torch_avg(data):
+    return torch.mean(data["sys_logs"], axis=1).to(device)
+
 class FactorizedLatencyNet(torch.nn.Module):
     def __init__(self,
             cfg,
@@ -41,6 +44,8 @@ class FactorizedLatencyNet(torch.nn.Module):
                     cfg["sys_net"]["num_layers"],
                     cfg["sys_net"]["hl"]
                     )
+            self.sys_net.to(device)
+
         elif cfg["sys_net"]["arch"] == "transformer":
             self.sys_net = TransformerLogs(
                     num_sys_features,
@@ -50,12 +55,21 @@ class FactorizedLatencyNet(torch.nn.Module):
                     cfg["sys_net"]["num_heads"],
                     MAX_LOG_LEN,
                     )
+            self.sys_net.to(device)
 
-        self.sys_net.to(device)
+        elif cfg["sys_net"]["arch"] == "avg":
+            self.sys_net = torch_avg
 
         if cfg["factorized_net"]["arch"] == "mlp":
+
+            if cfg["sys_net"]["arch"] == "avg":
+                emb_size = cfg["factorized_net"]["embedding_size"] + \
+                            num_sys_features
+            else:
+                emb_size = cfg["factorized_net"]["embedding_size"]*2
+
             self.fact_net = SimpleRegression(
-                    cfg["factorized_net"]["embedding_size"]*2,
+                    emb_size,
                     1, cfg["factorized_net"]["num_layers"],
                     cfg["factorized_net"]["hl"])
             self.fact_net.to(device)
@@ -139,6 +153,7 @@ class SimpleRegression(torch.nn.Module):
             ):
 
         super(SimpleRegression, self).__init__()
+        print(input_width, n_output)
         self.final_act = final_act
         hidden_layer_size = int(hidden_layer_size)
         self.layers = nn.ModuleList()
@@ -182,6 +197,7 @@ class SimpleGCN(torch.nn.Module):
             arch="gcn"
             ):
         super(SimpleGCN, self).__init__()
+        assert final_act == "none"
 
         self.dropout = dropout
         self.final_act=final_act
@@ -295,8 +311,8 @@ class SimpleGCN(torch.nn.Module):
             x = self.lin3(x)
             x = F.relu(x)
             x = self.lin4(x)
-            if self.final_act == "sigmoid":
-                x = torch.sigmoid(x)
+            # if self.final_act == "sigmoid":
+                # x = torch.sigmoid(x)
 
             return x.squeeze(1)
 

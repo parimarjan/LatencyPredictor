@@ -8,7 +8,7 @@ import copy
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-MAX_LOG_LEN=10
+MAX_LOG_LEN=30
 
 class QueryPlanDataset(data.Dataset):
     def __init__(self, plans,
@@ -57,13 +57,8 @@ class QueryPlanDataset(data.Dataset):
                     self.subplan_ests)
 
             curfeats["y"] = lat
-            info = {}
 
-            ## extra info;
-            curfeats["info"] = info
-            cur_logs = sys_logs[G.graph["tag"]]
-            # max_log_len = int(self.log_prev_secs / (10*self.log_skip))
-            # print("max log len: ", max_log_len)
+            cur_logs = sys_logs[G.graph["tag"]][G.graph["instance"]]
 
             prev_logs = extract_previous_logs(cur_logs, G.graph["start_time"],
                                     self.log_prev_secs,
@@ -84,6 +79,12 @@ class QueryPlanDataset(data.Dataset):
 
             curx["graph"] = curfeats
             curx["sys_logs"] = logf
+
+            info = {}
+            info["instance"] = G.graph["instance"]
+            info["latency"] = G.graph["latency"]
+            info["qname"] = G.graph["qname"]
+            curx["info"] = info
 
             data.append(curx)
 

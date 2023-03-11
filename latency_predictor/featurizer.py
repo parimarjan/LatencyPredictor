@@ -5,6 +5,7 @@ import pdb
 from latency_predictor.utils import *
 from torch_geometric.data import Data
 import torch
+import pickle
 
 IGNORE_NODE_FEATS = ["Alias"]
 
@@ -16,11 +17,14 @@ class Featurizer():
     def __init__(self,
             plans,
             sys_logs,
+            cfg,
             *args,
             **kwargs):
         '''
         '''
         self.kwargs = kwargs
+        self.cfg = cfg
+
         for k, val in kwargs.items():
             self.__setattr__(k, val)
         self.ignore_node_feats = IGNORE_NODE_FEATS
@@ -99,7 +103,30 @@ class Featurizer():
                 del self.idx_starts[k]
 
         print("Features based on: ", used_keys)
-        self._init_syslog_features(sys_logs)
+
+        if self.cfg["sys_net"]["pretrained"]:
+            if self.cfg["sys_net"]["use_pretrained_norms"]:
+                fn = self.cfg["sys_net"]["pretrained_fn"]
+                fn = fn.replace("_fixed", "")
+                fn = fn.replace(".wt", "_normalizers.pkl")
+                with open(fn, 'rb') as handle:
+                    sys_norms = pickle.load(handle)
+                # self.num_syslog_features = len(sys_norms)
+                self._update_syslog_idx_positions(list(sys_norms.keys()))
+            else:
+                sys_norms = self._init_syslog_features(sys_logs)
+        else:
+            sys_norms = self._init_syslog_features(sys_logs)
+            if self.cfg["sys_net"]["save_weights"]:
+                fn = self.cfg["sys_net"]["pretrained_fn"]
+                fn = fn.replace(".wt", "_normalizers.pkl")
+                with open(fn, 'wb') as handle:
+                    pickle.dump(sys_norms, handle)
+                print(fn)
+
+        print(sys_norms)
+        pdb.set_trace()
+        self.normalization_stats.update(sys_norms)
 
     def _update_attrs(self, plans, attrs):
         for G in plans:
@@ -109,37 +136,63 @@ class Featurizer():
                         # continue
                     attrs[key].add(val)
 
-    def _init_syslog_features(self, sys_logs):
-        alllogs = [v for _,v in sys_logs.items()]
-        df = pd.concat(alllogs)
-        keys = df.keys()
-
+    def _update_syslog_idx_positions(self, keys):
+        keys.sort()
         self.num_syslog_features = 0
         cur_feature_idx = 0
 
         for key in keys:
-            if len(set(df[key])) == 1:
-                continue
-            assert key not in self.idx_starts
-            if not is_float(min(df[key])):
-                continue
-
-            # cvs = [float(v0) for v0 in v]
-            if self.normalizer == "min-max":
-                if max(df[key]) - min(df[key]) == 0:
-                    continue
-                self.normalization_stats[key] = (min(df[key]), max(df[key]))
-            elif self.normalizer == "std":
-                self.normalization_stats[key] = (np.mean(df[key].values),
-                        np.std(df[key].values))
-            else:
-                assert False
-
             self.idx_starts[key] = cur_feature_idx
             self.idx_types[key] = "cont"
             self.idx_lens[key] = 1
             cur_feature_idx += 1
             self.num_syslog_features += 1
+
+        print("Number of system log data points per timestep: ", self.num_syslog_features)
+
+    def _init_syslog_features(self, sys_logs):
+
+        sys_normalization = {}
+        alllogs = []
+        for instance in sys_logs:
+            for _,curlogs in sys_logs[instance].items():
+                alllogs.append(curlogs)
+
+        df = pd.concat(alllogs)
+
+        keys = list(df.keys())
+        newkeys = []
+        for key in keys:
+            if not is_float(min(df[key])):
+                continue
+            assert key not in self.idx_starts
+            newkeys.append(key)
+        newkeys.sort()
+        keys = newkeys
+
+        self._update_syslog_idx_positions(keys)
+
+        for key in keys:
+            if self.normalizer == "min-max":
+                # TODO: special case w/ unique value
+                if max(df[key]) - min(df[key]) == 0:
+                    continue
+                sys_normalization[key] = (min(df[key]), max(df[key]))
+
+            elif self.normalizer == "std":
+                if len(set(df[key])) == 1:
+                    # ensures the features just become 0.0; not ignoring this
+                    # key to keep consistent #input features for transformers
+                    # trained using different logs
+                    sys_normalization[key] = (np.mean(df[key].values),
+                            1.0)
+                else:
+                    sys_normalization[key] = (np.mean(df[key].values),
+                            np.std(df[key].values))
+            else:
+                assert False
+
+        return sys_normalization
 
     def normalizeY(self, y):
         '''

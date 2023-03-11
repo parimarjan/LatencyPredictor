@@ -38,7 +38,7 @@ def explain_to_nx(plan):
                 v = str(v)
 
             k = k.replace(" ", "")
-            if "Time" in k:
+            if "Time" in k and is_float(v):
                 G.nodes()[new_node][k] = v / 1000.0
             else:
                 G.nodes()[new_node][k] = v
@@ -52,7 +52,8 @@ def explain_to_nx(plan):
             elif len(cur_plan["Plans"]) == 1:
                 children_time = cur_plan["Plans"][0]["Actual Total Time"]
             else:
-                assert False
+                return
+                # assert False
 
             # print(children_time)
             G.nodes[new_node]["ActualCurTime"] =(cur_plan["Actual Total Time"]\
@@ -184,7 +185,8 @@ def get_all_traindirs(inp_dir):
 
 def load_sys_logs(inp_dir):
 
-    logfns = glob.iglob(inp_dir + "/*/results/sar_logs*")
+    # logfns = glob.iglob(inp_dir + "/*/results/sar_logs*")
+    logfns = glob.iglob(inp_dir + "/results/sar_logs*")
     logdfs = {}
 
     for fi, fn in enumerate(logfns):
@@ -324,6 +326,8 @@ def get_plans(df):
         G.graph["latency"] = row["runtime"]
         G.graph["tag"] = row["tag"]
         G.graph["qname"] = row["qname"]
+        G.graph["instance"] = row["instance"]
+
         plans.append(G)
 
     return plans
@@ -348,28 +352,79 @@ def load_all_logs(inp_tag, inp_dir):
     if not os.path.exists(inp_dir):
         return [],[]
 
-    rtfns = glob.iglob(inp_dir + "/*/results/Runtime*.csv")
     dfs = []
+    all_logs = {}
 
-    for rtfn in rtfns:
-        dfs.append(pd.read_csv(rtfn))
+    instance_dirs = os.listdir(inp_dir)
+    for iname in instance_dirs:
+        curdir = os.path.join(inp_dir, iname)
+        if not os.path.isdir(curdir):
+            continue
+        # lets load the result files
+        rtfns = glob.iglob(curdir + "/results/Runtime*.csv")
+        curdfs = []
+
+        for rtfn in rtfns:
+            currt = pd.read_csv(rtfn)
+            currt["instance"] = iname
+            curdfs.append(currt)
+
+        if len(curdfs) == 0:
+            continue
+
+        currt = pd.concat(curdfs)
+        curlogs = load_sys_logs(curdir)
+
+        # skip queries which are outside logged time
+        if len(curlogs) == 0:
+            continue
+
+        curlogs = curlogs.dropna()
+        if len(curlogs) == 0:
+            continue
+
+        # remove part of logs which aren't in currts
+        max_query_start = max(currt["start_time"]) + 60.0
+        min_query_start = min(currt["start_time"]) - 650.0
+        curlogs = curlogs[curlogs["timestamp"] > min_query_start]
+        curlogs = curlogs[curlogs["timestamp"] < max_query_start]
+
+        maxlogtime = max(curlogs["timestamp"])
+        try:
+            currt = currt[currt["start_time"] <= maxlogtime]
+        except Exception as e:
+            print(e)
+            continue
+
+        if len(currt) == 0:
+            continue
+
+        dfs.append(currt)
+        all_logs[iname] = curlogs
+
+    if len(dfs) == 0:
+        return [],[]
 
     df = pd.concat(dfs)
 
-    ### TODO: handle timeouts;
-    ### just re-use plans from another run?
+    if len(all_logs) == 0:
+        return [],[]
+
+    # handle timeouts
+    timeouts = df[df["exp_analyze"].isna()]
+    timeouts = timeouts[timeouts["runtime"] != -1.0]
     df = df[~df["exp_analyze"].isna()]
     df = df[df["exp_analyze"] != "nan"]
 
-    df["inp_tag"] = inp_tag
-
-    logdfs = load_sys_logs(inp_dir)
-    if len(logdfs) == 0:
-        return df,[]
-
-    logdfs["inp_tag"] = inp_tag
-
-    return df, logdfs
+    if len(timeouts) != 0:
+        print(inp_dir, inp_tag)
+        print("Total: ", len(df), "Timeouts: ", len(timeouts))
+        timeouts = timeouts[timeouts["qname"].isin(df["qname"].values)]
+        timeouts["exp_analyze"] = timeouts.apply(lambda x:
+                df[df["qname"] == x["qname"]]["exp_analyze"].values[0],
+                axis=1)
+        df = pd.concat([df, timeouts])
+    return df, all_logs
 
 
 

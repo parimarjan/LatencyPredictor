@@ -19,6 +19,26 @@ import multiprocessing as mp
 logger = logging.getLogger("wandb")
 logger.setLevel(logging.ERROR)
 
+def parse_args_any(args):
+    pos = []
+    named = {}
+    key = None
+    for arg in args:
+        if key:
+            if arg.startswith('--'):
+                named[key] = True
+                key = arg[2:]
+            else:
+                named[key] = arg
+                key = None
+        elif arg.startswith('--'):
+            key = arg[2:]
+        else:
+            pos.append(arg)
+    if key:
+        named[key] = True
+    return (pos, named)
+
 def get_alg(alg, cfg):
     if alg == "avg":
         return AvgPredictor()
@@ -108,6 +128,10 @@ def read_flags():
     parser.add_argument("--config", type=str, required=False,
             default="config.yaml", help="")
 
+    parser.add_argument("--factorized_net_embedding_size", "-es", type=int,
+            required=False,
+            default=None, help="")
+
     parser.add_argument("--actual_feats", type=int, required=False,
             default=0)
     parser.add_argument("--table_feat", type=int, required=False,
@@ -136,27 +160,13 @@ def read_flags():
     parser.add_argument("--final_act", type=str, required=False,
             default="none", help="add a final activation in the models or not.")
 
-    # parser.add_argument("--tags", type=str, required=False,
-            # default="t7xlarge-gp3-d",
-            # help="tags to use for training data")
-    # parser.add_argument("--use_eval_tags", type=int, required=False,
-            # default=0, help="0 or 1. use additional tags for evaluating models or not.")
-    # parser.add_argument("--eval_tags", type=str, required=False,
-            # default=None, help="additional tag to use for evaluating the models. Leave None to use all possible tags")
-
     parser.add_argument("--use_wandb", type=int, required=False,
             default=1, help="")
     parser.add_argument("--wandb_tags", type=str, required=False,
             default=None, help="additional tags for wandb logs")
 
-    # parser.add_argument("--batch_size", type=int, required=False,
-            # default=4, help="""batch size for training gcn models.""")
-
     parser.add_argument("--log_transform_y", type=int, required=False,
             default=0, help="predicting log(latency) instead of latency")
-
-    # parser.add_argument("--traindata_dir", type=str, required=False,
-            # default="""LatencyCollectorResults/multiple""", help="directory with the workload log files.")
 
     parser.add_argument("--result_dir", type=str, required=False,
             default="results",
@@ -167,8 +177,6 @@ def read_flags():
 
     parser.add_argument("--test_size", type=float, required=False,
             default=0.0)
-    # parser.add_argument("--val_size", type=float, required=False,
-            # default=0.2)
 
     ## NN parameters
     parser.add_argument("--lr", type=float, required=False,
@@ -182,7 +190,7 @@ def read_flags():
     parser.add_argument("--eval_epoch", type=int, required=False,
             default=2)
     parser.add_argument("--num_epochs", type=int, required=False,
-            default=200)
+            default=500)
 
     parser.add_argument("--alg", type=str, required=False,
             default="nn")
@@ -216,14 +224,15 @@ def load_dfs(dirs, tags):
             if len(clogs) == 0:
                 continue
 
-            maxlogtime = max(clogs["timestamp"])
-            try:
-                cdf = cdf[cdf["start_time"] <= maxlogtime]
-            except Exception as e:
-                print(tag, e)
-                continue
-
+            # TODO: do this in load_all_logs
+            # maxlogtime = max(clogs["timestamp"])
+            # try:
+                # cdf = cdf[cdf["start_time"] <= maxlogtime]
+            # except Exception as e:
+                # print(tag, e)
+                # continue
             assert tag not in sys_logs
+
             sys_logs[tag] = clogs
             cdf["tag"] = tag
             all_dfs.append(cdf)
@@ -239,26 +248,33 @@ def main():
     with open(args.config) as f:
         cfg = yaml.safe_load(f.read())
 
-    print(yaml.dump(cfg, default_flow_style=False))
+    wandbcfg = {}
+    cargs = vars(args)
+    for k,v in cfg.items():
+        if isinstance(v, dict):
+            for k2,v2 in v.items():
+                newkey = k+"_"+k2
+                if newkey in cargs and cargs[newkey] is not None:
+                    v[k2] = cargs[newkey]
+                    v2 = cargs[newkey]
+                wandbcfg.update({newkey:v2})
+        else:
+            if k in cargs and cargs[k] is not None:
+                cfg[k] = cargs[k]
+                v = cargs[k]
+            wandbcfg.update({k:v})
+
+    wandb_tags = ["1a"]
+    if args.wandb_tags is not None:
+        wandb_tags += args.wandb_tags.split(",")
+
+    wandbcfg.update(vars(args))
 
     if args.use_wandb:
-        wandbcfg = {}
-        for k,v in cfg.items():
-            if isinstance(v, dict):
-                for k2,v2 in v.items():
-                    wandbcfg.update({k+"-"+k2:v2})
-            else:
-                wandbcfg.update({k:v})
-
-        wandb_tags = ["1a"]
-        if args.wandb_tags is not None:
-            wandb_tags += args.wandb_tags.split(",")
-        wandbcfg.update(vars(args))
-
         wandb.init("learned-latency", config=wandbcfg,
                 tags=wandb_tags)
 
-        # wandb.config.update(vars(args))
+    print(yaml.dump(cfg, default_flow_style=False))
 
     print("Using tags: ", cfg["tags"].split(","))
     df,sys_logs = load_dfs(cfg["traindata_dir"], cfg["tags"])
@@ -271,6 +287,7 @@ def main():
 
     train_df = df[df["qname"].isin(train_qnames)]
     test_df = df[df["qname"].isin(test_qnames)]
+
     train_plans = get_plans(train_df)
     test_plans = get_plans(test_df)
 
@@ -300,6 +317,7 @@ New Env Unseen Plans: {}".format(
 
     featurizer = Featurizer(train_plans,
                             sys_logs,
+                            cfg,
                             actual_feats = args.actual_feats,
                             feat_undirected_edges = args.feat_undirected_edges,
                             feat_noncumulative_costs = args.feat_noncumulative_costs,

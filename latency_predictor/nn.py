@@ -21,6 +21,17 @@ from latency_predictor.algs import *
 import pickle
 import wandb
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 # PERCENTILES_TO_SAVE = [50, 99]
 PERCENTILES_TO_SAVE = []
 def percentile_help(q):
@@ -35,8 +46,11 @@ def collate_fn_gcn2(X):
     Z = [x["graph"] for x in X]
 
     S = []
-    for x in X:
-        x = x["sys_logs"]
+    infos = []
+
+    for curx in X:
+        x = curx["sys_logs"]
+        infos.append(curx["info"])
         if len(x.shape) == 1:
             S.append(x)
         else:
@@ -48,6 +62,7 @@ def collate_fn_gcn2(X):
     ret = {}
     ret["graph"] = torch_geometric.data.Batch.from_data_list(Z).to(device)
     ret["sys_logs"] = torch.stack(S)
+    ret["info"] = infos
     return ret
 
 def qloss_torch(yhat, ytrue):
@@ -148,15 +163,16 @@ class NN(LatencyPredictor):
             errors = eval_fn.eval(res, y)
 
             self.log(errors, eval_fn.__str__(), samples_type)
-            losses.append(np.mean(errors))
+            losses.append(np.round(np.mean(errors), 2))
 
         tot_time = round(time.time()-start, 2)
         stat_update = "{}:took {}, ".format(samples_type, tot_time)
+
         for i, eval_fn in enumerate(self.eval_fns):
-            stat_update += eval_fn.__str__() + ": " + str(losses[i]) + "; "
+            stat_update += eval_fn.__str__() + ": " + \
+                bcolors.OKBLUE+str(losses[i])+bcolors.ENDC + "; "
 
         print(stat_update)
-
 
     def _train_one_epoch(self):
         start = time.time()
@@ -205,7 +221,14 @@ class NN(LatencyPredictor):
         if self.cfg["sys_net"]["save_weights"]:
             torch.save(self.net.sys_net.state_dict(),
                     self.cfg["sys_net"]["pretrained_fn"])
-            print("saved: ", self.cfg["sys_net"]["pretrained_fn"])
+            print("saved sys net: ", self.cfg["sys_net"]["pretrained_fn"])
+
+            if hasattr(self.net, "fact_net"):
+                fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
+                                                                     "/fact_")
+                torch.save(self.net.fact_net.state_dict(),
+                        fname)
+                print("saved fact net: ", fname)
 
 
     def log(self, losses, loss_type, samples_type):
@@ -292,8 +315,8 @@ class NN(LatencyPredictor):
         print(self.net)
 
         if self.cfg["sys_net"]["pretrained"]:
-            print("pretrained!")
-            pdb.set_trace()
+            print("Going to use pretrained system model from: ",
+                    self.cfg["sys_net"]["pretrained_fn"])
 
             self.net.sys_net.load_state_dict(torch.load(
                     self.cfg["sys_net"]["pretrained_fn"]))
@@ -301,22 +324,55 @@ class NN(LatencyPredictor):
             for parameter in self.net.sys_net.parameters():
                 parameter.requires_grad = False
 
+            if hasattr(self.net, "fact_net") and \
+                    self.cfg["factorized_net"]["pretrained"]:
+
+                fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
+                                                                     "/fact_")
+
+                print("Going to use pretrained factorized head from: ",
+                        fname)
+                self.net.fact_net.load_state_dict(torch.load(
+                    fname))
+
+                for parameter in self.net.fact_net.parameters():
+                    parameter.requires_grad = False
+
         self.optimizer = torch.optim.AdamW(self.net.parameters(), lr=self.lr,
                 weight_decay=self.weight_decay)
 
+        # self._save_embeddings(["train", "new_env_seen"])
+        # pdb.set_trace()
+
         for self.epoch in range(self.num_epochs):
-            if self.epoch % self.eval_epoch == 0 \
-                    and self.epoch != 0:
+            if self.epoch % self.eval_epoch == 0:
                 for st in self.eval_loaders.keys():
                     self.periodic_eval(st)
 
             self._train_one_epoch()
 
+    def _save_embeddings(self, sample_types):
+
+        embeddings = []
+        for st in sample_types:
+            dl = self.eval_loaders[st]
+            with torch.no_grad():
+                for data in dl:
+                    xsys = self.net.sys_net(data)
+
+                    for bi,info in enumerate(data["info"]):
+                        embeddings.append((info, xsys[bi].cpu().numpy()))
+
+        efn = self.cfg["sys_net"]["pretrained_fn"]
+        efn = efn.replace("models/", "embeddings/")
+        efn = efn.replace(".wt", ".pkl")
+        with open(efn, "wb") as f:
+            pickle.dump(embeddings, f,
+                            protocol=3)
+
     def _eval_loader(self, ds, dl):
         res = []
         trueys = []
-        # self.net.eval()
-        # self.net.gcn_net.eval()
 
         with torch.no_grad():
             for data in dl:

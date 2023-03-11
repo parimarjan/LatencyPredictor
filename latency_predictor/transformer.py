@@ -8,6 +8,8 @@ import pdb
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+#https://github.com/pbloem/former/blob/master/former/modules.py
+
 class SelfAttentionWide(nn.Module):
     def __init__(self, emb, heads=8, mask=False):
         """
