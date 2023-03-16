@@ -264,7 +264,7 @@ class NN(LatencyPredictor):
             self.eval_loaders[kind] = dl
 
     def train(self, train_plans, sys_logs, featurizer,
-            same_env_unseen=[],
+            test=[],
             new_env_seen = [], new_env_unseen = [],
             ):
 
@@ -291,12 +291,12 @@ class NN(LatencyPredictor):
                 batch_size=self.batch_size,
                 shuffle=False, collate_fn=self.collate_fn)
 
-        self.setup_workload("same_env_unseen", same_env_unseen, sys_logs)
+        self.setup_workload("test", test, sys_logs)
         self.setup_workload("new_env_seen", new_env_seen, sys_logs)
         self.setup_workload("new_env_unseen", new_env_unseen, sys_logs)
 
-        # if len(same_env_unseen) != 0:
-            # ds = QueryPlanDataset(same_env_unseen,
+        # if len(test) != 0:
+            # ds = QueryPlanDataset(test,
                     # sys_logs,
                     # self.featurizer,
                     # self.cfg["sys_net"],
@@ -306,8 +306,8 @@ class NN(LatencyPredictor):
                     # batch_size=self.batch_size,
                     # shuffle=False, collate_fn=self.collate_fn)
 
-            # self.eval_ds["same_env_unseen"] = ds
-            # self.eval_loaders["same_env_unseen"] = dl
+            # self.eval_ds["test"] = ds
+            # self.eval_loaders["test"] = dl
 
         ## TODO: initialize for other datasets
 
@@ -341,7 +341,7 @@ class NN(LatencyPredictor):
         self.optimizer = torch.optim.AdamW(self.net.parameters(), lr=self.lr,
                 weight_decay=self.weight_decay)
 
-        # self._save_embeddings(["train", "new_env_seen"])
+        self._save_embeddings(["train", "test"])
         # pdb.set_trace()
 
         for self.epoch in range(self.num_epochs):
@@ -359,13 +359,15 @@ class NN(LatencyPredictor):
             with torch.no_grad():
                 for data in dl:
                     xsys = self.net.sys_net(data)
-
                     for bi,info in enumerate(data["info"]):
                         embeddings.append((info, xsys[bi].cpu().numpy()))
 
-        efn = self.cfg["sys_net"]["pretrained_fn"]
-        efn = efn.replace("models/", "embeddings/")
-        efn = efn.replace(".wt", ".pkl")
+        # efn = self.cfg["sys_net"]["pretrained_fn"]
+        # efn = efn.replace("models/", "embeddings/")
+        # efn = efn.replace("models2/", "embeddings/")
+        # efn = efn.replace(".wt", ".pkl")
+        efn = "./embeddings/avg_stack.pkl"
+        print("writing out embeddings to: ", efn)
         with open(efn, "wb") as f:
             pickle.dump(embeddings, f,
                             protocol=3)

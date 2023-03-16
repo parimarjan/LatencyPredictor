@@ -5,6 +5,9 @@ import ntpath
 import os
 import pdb
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 from latency_predictor.utils import *
 from latency_predictor.algs import *
 from latency_predictor.nn import NN
@@ -18,6 +21,34 @@ import multiprocessing as mp
 
 logger = logging.getLogger("wandb")
 logger.setLevel(logging.ERROR)
+
+def split_workload(df, cfg):
+
+    split_kind = cfg.get("split_kind", "instance")
+    # inum = cfg.get("instance_num", 1)
+    inum = cfg["num_instances"]
+
+    if split_kind == "instances":
+        print("Random seed: ", cfg["seed"], " Num Instances: ", inum)
+        random.seed(cfg["seed"])
+        instances = list(set(df["lt_type"]))
+        instances.sort()
+        train_qinstances = random.sample(instances, inum)
+        test_qinstances = [q for q in instances if q not in
+                train_qinstances]
+        train_df = df[df["lt_type"].isin(train_qinstances)]
+        test_df = df[df["lt_type"].isin(test_qinstances)]
+    else:
+        random.seed(cfg["seed"])
+        qnames = list(set(df["qname"]))
+        # split into train / test data
+        test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
+        train_qnames = [q for q in qnames if q not in test_qnames]
+
+        train_df = df[df["qname"].isin(train_qnames)]
+        test_df = df[df["qname"].isin(test_qnames)]
+
+    return train_df,test_df
 
 def parse_args_any(args):
     pos = []
@@ -55,7 +86,8 @@ def get_alg(alg, cfg):
                 # batch_size = args.batch_size,
                 global_feats = args.global_feats,
                 # tags = args.tags,
-                seed = args.seed, test_size = args.test_size,
+                # seed = args.seed,
+                test_size = args.test_size,
                 # val_size = args.val_size,
                 eval_epoch = args.eval_epoch,
                 # logdir = args.logdir,
@@ -173,7 +205,9 @@ def read_flags():
             help="")
 
     parser.add_argument("--seed", type=int, required=False,
-            default=666, help="seed for train/test split")
+            default=None, help="seed for train/test split")
+    parser.add_argument("--num_instances", type=int, required=False,
+            default=None, help="seed for train/test split")
 
     parser.add_argument("--test_size", type=float, required=False,
             default=0.0)
@@ -208,6 +242,9 @@ def read_flags():
     parser.add_argument("--global_feats", type=int, required=False,
             default=0)
 
+    parser.add_argument("--skip_timeouts", type=int, required=False,
+            default=1)
+
     return parser.parse_args()
 
 def load_dfs(dirs, tags):
@@ -219,7 +256,8 @@ def load_dfs(dirs, tags):
 
     for curdir in dirs:
         for tag in tags:
-            cdf,clogs = load_all_logs(tag, curdir)
+            cdf,clogs = load_all_logs(tag, curdir,
+                    skip_timeouts=args.skip_timeouts)
 
             if len(clogs) == 0:
                 continue
@@ -279,17 +317,14 @@ def main():
     print("Using tags: ", cfg["tags"].split(","))
     df,sys_logs = load_dfs(cfg["traindata_dir"], cfg["tags"])
 
-    random.seed(args.seed)
-    qnames = list(set(df["qname"]))
-    # split into train / test data
-    test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
-    train_qnames = [q for q in qnames if q not in test_qnames]
-
-    train_df = df[df["qname"].isin(train_qnames)]
-    test_df = df[df["qname"].isin(test_qnames)]
-
+    train_df, test_df = split_workload(df, cfg)
     train_plans = get_plans(train_df)
     test_plans = get_plans(test_df)
+
+    print("Train instance types: ", set(train_df["lt_type"]))
+    print("Test instance types: ", set(test_df["lt_type"]))
+    train_qnames = set(train_df["qname"])
+    test_qnames = set(test_df["qname"])
 
     if cfg["use_eval_tags"]:
         ## new envs
@@ -298,6 +333,7 @@ def main():
 
         seendf = df[df["qname"].isin(train_qnames)]
         unseendf = df[~df["qname"].isin(train_qnames)]
+
         new_env_seen_plans = get_plans(seendf)
         new_env_unseen_plans = get_plans(unseendf)
     else:
@@ -329,8 +365,7 @@ New Env Unseen Plans: {}".format(
                             normalizer = args.normalizer,
                             y_normalizer = args.y_normalizer,
                             table_feat=args.table_feat,
-                            col_feat = args.col_feat,
-                            num_bins=50)
+                            col_feat = args.col_feat)
 
     alg = get_alg(args.alg, cfg)
     exp_name = alg.get_exp_name()
@@ -351,7 +386,7 @@ New Env Unseen Plans: {}".format(
     alg.train(train_plans,
             sys_logs,
             featurizer,
-            same_env_unseen = test_plans,
+            test = test_plans,
             new_env_seen= new_env_seen_plans,
             new_env_unseen = new_env_unseen_plans,
             )

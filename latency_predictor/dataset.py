@@ -82,6 +82,7 @@ class QueryPlanDataset(data.Dataset):
 
             info = {}
             info["instance"] = G.graph["instance"]
+            info["lt_type"] = G.graph["lt_type"]
             info["latency"] = G.graph["latency"]
             info["qname"] = G.graph["qname"]
             curx["info"] = info

@@ -14,6 +14,7 @@ import time
 from networkx.drawing.nx_agraph import write_dot,graphviz_layout
 from networkx.algorithms.traversal.depth_first_search import dfs_tree
 import math
+from io import StringIO
 
 import torch
 from torch.autograd import Variable
@@ -327,6 +328,7 @@ def get_plans(df):
         G.graph["tag"] = row["tag"]
         G.graph["qname"] = row["qname"]
         G.graph["instance"] = row["instance"]
+        G.graph["lt_type"] = row["lt_type"]
 
         plans.append(G)
 
@@ -345,8 +347,25 @@ def extract_previous_logs(cur_sys_logs, start_time,
 
     return tmp
 
+LT_FN = "lt_instances.txt"
+LT_TYPES = '''a1_large_mag_4g=lt-0d15fb8f5bbe9a27d
+a1_large_gp3_4g=lt-04840b55d3f795395
+r7g_large_gp2_16g=lt-0212ec953ba35b176
+t3_large_gp2_8g=lt-05d2d354bc3dd9133
+c5a_large_mag_4g=lt-03218e9e27718bbbe
+m6a_large_mag_8g=lt-0f6f46002652f9a4c
+t3a_medium_gp3_4g=lt-0af65294350b1a8c1
+t3a_large_gp3_8g=lt-084bfbae110d52d4e
+r6a_large_mag_16g=lt-0e608666ff3adff07
+t4g_large_mag_8g=lt-04e0b4826c63bfadb
+c7g_large_mag_4g=lt-0af47c6caa3b53b8b
+r7g_medium_gp2_16g=lt-01d0081183a7d79f2
+t3_xlarge_gp2_16g=lt-0b413bcc22b3ac8fb
+'''
+LT_TYPES_DF = pd.read_csv(StringIO(LT_TYPES), sep="=", header=None,
+                       names=["lt_type", "lt"])
 
-def load_all_logs(inp_tag, inp_dir):
+def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
 
     inp_dir = os.path.join(inp_dir, inp_tag)
     if not os.path.exists(inp_dir):
@@ -356,6 +375,14 @@ def load_all_logs(inp_tag, inp_dir):
     all_logs = {}
 
     instance_dirs = os.listdir(inp_dir)
+    lt_fn_path = os.path.join(inp_dir, LT_FN)
+    if os.path.exists(lt_fn_path):
+        ltdf = pd.read_csv(lt_fn_path, header=None,
+                   names=["instance", "lt"])
+        ltdf = ltdf.merge(LT_TYPES_DF, on="lt")
+    else:
+        return [],[]
+
     for iname in instance_dirs:
         curdir = os.path.join(inp_dir, iname)
         if not os.path.isdir(curdir):
@@ -373,6 +400,14 @@ def load_all_logs(inp_tag, inp_dir):
             continue
 
         currt = pd.concat(curdfs)
+        if len(currt) == 0:
+            continue
+        currt = currt.merge(ltdf, on="instance")
+
+        if len(currt) == 0:
+            print(iname, "rt == 0")
+            continue
+
         curlogs = load_sys_logs(curdir)
 
         # skip queries which are outside logged time
@@ -384,12 +419,17 @@ def load_all_logs(inp_tag, inp_dir):
             continue
 
         # remove part of logs which aren't in currts
-        max_query_start = max(currt["start_time"]) + 60.0
-        min_query_start = min(currt["start_time"]) - 650.0
+        max_query_start = max(currt["start_time"].values) + 60.0
+        min_query_start = min(currt["start_time"].values) - 650.0
+
         curlogs = curlogs[curlogs["timestamp"] > min_query_start]
         curlogs = curlogs[curlogs["timestamp"] < max_query_start]
 
-        maxlogtime = max(curlogs["timestamp"])
+        if len(curlogs) == 0:
+            print("curlogs == 0 after filtering for: ", inp_tag)
+            continue
+
+        maxlogtime = max(curlogs["timestamp"].values)
         try:
             currt = currt[currt["start_time"] <= maxlogtime]
         except Exception as e:
@@ -416,7 +456,7 @@ def load_all_logs(inp_tag, inp_dir):
     df = df[~df["exp_analyze"].isna()]
     df = df[df["exp_analyze"] != "nan"]
 
-    if len(timeouts) != 0:
+    if not skip_timeouts and len(timeouts) != 0:
         print(inp_dir, inp_tag)
         print("Total: ", len(df), "Timeouts: ", len(timeouts))
         timeouts = timeouts[timeouts["qname"].isin(df["qname"].values)]
@@ -424,6 +464,7 @@ def load_all_logs(inp_tag, inp_dir):
                 df[df["qname"] == x["qname"]]["exp_analyze"].values[0],
                 axis=1)
         df = pd.concat([df, timeouts])
+
     return df, all_logs
 
 

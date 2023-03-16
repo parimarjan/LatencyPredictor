@@ -1,13 +1,6 @@
 %YAML 1.2
 ---
 #gpu: 0
-split_kind : "instances" # instances,query,...;
-random_split: "random" # random,custom
-num_instances : 1
-seed : 1
-max_set_len : 5000
-num_bins : 250
-
 traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
 #tags : "CEB-t2medium-gp3"
 #tags: "CEB-t2small-gp3,m5ad-gp2,CEB-c7xlarge-gp2,CEB-t2medium-gp2,JOB-t2small"
@@ -16,10 +9,11 @@ traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/multiple,La
 #tags: "exp2_single,exp3_single"
 
 #tags: "exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch"
-tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs"
+#tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch"
 
-#tags: "exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch,CEB-c7large-gp2,CEB-t2medium-gp2,CEB-t2small-gp3,JOB-t2medium,JOB-t2micro,m5ad-gp2,CEB-c7xlarge-gp2,CEB-t2medium-gp3,JOB-c4x,JOB-t2medium-gp3,JOB-t2small,t7xlarge-gp3-a,t7xlarge-gp3-b,t7xlarge-gp3-e-stressng,t7xlarge-gp3-d"
+tags: "exp1_single,exp2_single,exp3_single,exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch"
 
+#tags: "exp1_single,exp2_single,exp3_single,exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch,CEB-c7large-gp2,CEB-t2medium-gp2,CEB-t2small-gp3,JOB-t2medium,JOB-t2micro,m5ad-gp2,CEB-c7xlarge-gp2,CEB-t2medium-gp3,JOB-c4x,JOB-t2medium-gp3,JOB-t2small,t7xlarge-gp3-a,t7xlarge-gp3-b,t7xlarge-gp3-e-stressng,t7xlarge-gp3-d"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
@@ -40,13 +34,9 @@ sys_net:
   # mlp / transformer
   arch: "transformer"
   pretrained : 0
-  save_weights: 1
-  #pretrained_fn: "models/all_no123_128.wt"
-  #pretrained_fn: "models/all_noimdb_128.wt"
+  save_weights: 0
+  pretrained_fn: "models/all_no123_128.wt"
   #pretrained_fn: "models/all_noimdbwk_128.wt"
-  #pretrained_fn: "models/all_noimdb2_128.wt"
-  pretrained_fn: "models/all_noimdb3_128_log.wt"
-  #pretrained_fn: "models/all_noimdb2_32.wt"
 
   hl: 512
   num_layers: 8
@@ -55,10 +45,11 @@ sys_net:
   log_skip: 2
 
 factorized_net:
-  arch: "mlp" # dot product
-  embedding_size: 128
-  #arch: "dot"
-  #embedding_size: 32
+  #arch: "mlp" # dot product
+  #embedding_size: 128
+  arch: "dot"
+  embedding_size: 8
+
   hl: 256
   num_layers: 2
 ...

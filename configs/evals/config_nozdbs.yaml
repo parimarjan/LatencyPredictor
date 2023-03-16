@@ -1,23 +1,25 @@
 %YAML 1.2
 ---
+#split_kind : "query" # instances,query,...;
 split_kind : "instances" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
-max_set_len : 5000
-num_bins : 250
+
+max_set_len : 1000
+num_bins : 100
 
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/new"
-### different splits here
-tags: "exp3_single,exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs"
-use_eval_tags : 1
+#tags: "exp2_single,exp3_single,"
+#tags: "exp1_single,exp2_single,exp3_single"
+tags: "exp10_single_zdbs"
+
+use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
 eval_tags : "exp1_single,exp2_single"
+#eval_tags : "exp1_single"
 
-dataset:
-  input_train: ''
-  input_test: ''
 common:
   batch_size: 16
 plan_net:
@@ -31,10 +33,12 @@ sys_net:
   #arch: "avg"
   #arch: "mlp"
   arch: "transformer"
-  pretrained : 0
-  use_pretrained_norms: 0
+  pretrained : 1
+  use_pretrained_norms: 1
   save_weights: 0
-  pretrained_fn: null
+
+  #pretrained_fn: "models2/nostack_128_filter_actual_fixed.wt"
+  pretrained_fn: "models2/no_zdbs.wt"
 
   hl: 512
   num_layers: 8
@@ -47,7 +51,7 @@ factorized_net:
   embedding_size: 128
   #arch: "dot"
   #embedding_size: 32
-  pretrained: 0
+  pretrained: 1
   hl: 256
   num_layers: 2
 ...

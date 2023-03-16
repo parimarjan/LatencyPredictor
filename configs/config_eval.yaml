@@ -1,12 +1,19 @@
 %YAML 1.2
 ---
+
+split_kind : "instances" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : 1
+seed : 1
+
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/new"
-#tags: "exp2_single,exp3_single,"
-tags: "exp2_single,"
+tags: "exp2_single,exp3_single,"
+#tags: "exp2_single,"
 use_eval_tags : 1
 eval_dirs : "LatencyCollectorResults/new"
-eval_tags : "exp1_single,exp3_single"
+#eval_tags : "exp1_single,exp3_single"
+eval_tags : "exp1_single"
 
 dataset:
   input_train: ''
@@ -33,9 +40,9 @@ sys_net:
   #pretrained_fn: "models/all_no123_128_fixed.wt"
   #pretrained_fn: "models/all_noimdb_128_fixed.wt"
 
-  #pretrained_fn: "models/all_noimdbwk_128_fixed.wt"
-  #pretrained_fn: "models/all_noimdbwk2_128_fixed.wt"
-  pretrained_fn: "models/all_noimdbwk_128_rep2_fixed.wt"
+  pretrained_fn: "models/all_noimdbwk_128_fixed.wt"
+  #pretrained_fn: "models/all_noimdbwk2_128_fixed.wt"   # w/o ceb2
+  #pretrained_fn: "models/all_noimdbwk_128_rep2_fixed.wt"
 
   #pretrained_fn: "models/all_noimdb_32_fixed.wt"
   #pretrained_fn: "models/all_noimdb2_128_fixed.wt"

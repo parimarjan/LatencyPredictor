@@ -1,0 +1,51 @@
+%YAML 1.2
+---
+split_kind : "query" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : 1
+seed : 1
+ignore_node_feats: "Alias,"
+
+max_set_len : 50000
+num_bins : 5000
+
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
+
+tags: "exp1_single,exp2_single,exp3_single,exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
+
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : "exp2_single"
+
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 4
+  subplan_ests: 0
+  dropout : 0
+sys_net:
+  # mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  save_weights: 1
+  pretrained_fn: "models2/nostack_128_filter_actual.wt"
+
+  hl: 512
+  num_layers: 8
+  num_heads: 16
+  log_prev_secs: 600
+  log_skip: 2
+
+factorized_net:
+  arch: "mlp" # dot product
+  embedding_size: 128
+
+  #arch: "dot"
+  #embedding_size: 128
+  pretrained: 0
+  hl: 256
+  num_layers: 2
+...

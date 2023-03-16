@@ -7,11 +7,12 @@ from torch_geometric.data import Data
 import torch
 import pickle
 
-IGNORE_NODE_FEATS = ["Alias"]
+IGNORE_NODE_FEATS = ["Alias", "Filter"]
+# IGNORE_NODE_FEATS = ["Alias"]
 
 ### TODO: check
 ## RowsRemovedbyJoinFilter
-MAX_SET_LEN = 50
+# MAX_SET_LEN = 50000
 
 class Featurizer():
     def __init__(self,
@@ -27,7 +28,13 @@ class Featurizer():
 
         for k, val in kwargs.items():
             self.__setattr__(k, val)
-        self.ignore_node_feats = IGNORE_NODE_FEATS
+
+        if "ignore_node_feats" in cfg:
+            self.ignore_node_feats = cfg["ignore_node_feats"].split(",")
+        else:
+            self.ignore_node_feats = IGNORE_NODE_FEATS
+
+        print("ignoring feats: ", self.ignore_node_feats)
 
         self.normalization_stats = {}
         self.idx_starts = {}
@@ -53,8 +60,14 @@ class Featurizer():
                 print("ignoring node feature of type: {}, with {} elements".format(k, len(v)))
                 continue
 
-            if "Actual" in k and not self.actual_feats:
-                continue
+            # if "Actual" in k and not self.actual_feats:
+                # continue
+            if self.actual_feats and "Actual" in k:
+                if not "ActualRows" in k:
+                    continue
+            else:
+                if "Actual" in k:
+                    continue
 
             if len(v) == 1:
                 continue
@@ -63,27 +76,8 @@ class Featurizer():
             used_keys.add(k)
 
             v0 = random.sample(v, 1)[0]
-            if len(v) < MAX_SET_LEN:
-                if len(v) < self.num_bins:
-                    # print(k, ": one-hot using bins")
-                    num_vals = len(v)
-                    self.idx_types[k] = "one-hot"
-                    # each unique value is mapped to an index
-                    self.val_idxs[k] = {}
-                    v = list(v)
-                    v.sort()
-                    for i, ve in enumerate(v):
-                        self.val_idxs[k][ve] = i
-                else:
-                    # print(k, ": feature-hashing")
-                    num_vals = self.num_bins
-                    self.idx_types[k] = "feature-hashing"
 
-                self.idx_lens[k] = num_vals
-                self.num_features += num_vals
-                self.cur_feature_idx += num_vals
-
-            elif is_float(v0):
+            if is_float(v0):
                 # print(k, ": continuous feature")
                 cvs = [float(v0) for v0 in v]
                 if self.normalizer == "min-max":
@@ -97,9 +91,31 @@ class Featurizer():
                 self.idx_lens[k] = 1
                 self.cur_feature_idx += 1
                 self.num_features += 1
+
+            elif len(v) < self.cfg["max_set_len"]:
+                if len(v) < self.cfg["num_bins"]:
+                    print(k, ": one-hot using bins")
+                    num_vals = len(v)
+                    self.idx_types[k] = "one-hot"
+                    # each unique value is mapped to an index
+                    self.val_idxs[k] = {}
+                    v = list(v)
+                    v.sort()
+                    for i, ve in enumerate(v):
+                        self.val_idxs[k][ve] = i
+                else:
+                    print(k, ": feature-hashing")
+                    num_vals = self.cfg["num_bins"]
+                    self.idx_types[k] = "feature-hashing"
+
+                self.idx_lens[k] = num_vals
+                self.num_features += num_vals
+                self.cur_feature_idx += num_vals
+
             else:
-                # print("skipping features {}, because too many values: {}"\
-                        # .format(k, len(v)))
+                print("skipping features {}, because too many values: {}"\
+                        .format(k, len(v)))
+                # pdb.set_trace()
                 del self.idx_starts[k]
 
         print("Features based on: ", used_keys)
@@ -109,9 +125,10 @@ class Featurizer():
                 fn = self.cfg["sys_net"]["pretrained_fn"]
                 fn = fn.replace("_fixed", "")
                 fn = fn.replace(".wt", "_normalizers.pkl")
+                print("Going to use pretrained log feature normalizers from: ",
+                        fn)
                 with open(fn, 'rb') as handle:
                     sys_norms = pickle.load(handle)
-                # self.num_syslog_features = len(sys_norms)
                 self._update_syslog_idx_positions(list(sys_norms.keys()))
             else:
                 sys_norms = self._init_syslog_features(sys_logs)
@@ -124,8 +141,10 @@ class Featurizer():
                     pickle.dump(sys_norms, handle)
                 print(fn)
 
-        print(sys_norms)
-        pdb.set_trace()
+        for k,v in sys_norms.items():
+            print(k, " mean: ", round(v[0], 2), ", std: ", round(v[1], 2))
+        # pdb.set_trace()
+
         self.normalization_stats.update(sys_norms)
 
     def _update_attrs(self, plans, attrs):

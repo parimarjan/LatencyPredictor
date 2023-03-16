@@ -1,6 +1,6 @@
 %YAML 1.2
 ---
-
+#split_kind : "query" # instances,query,...;
 split_kind : "instances" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
@@ -13,15 +13,12 @@ num_bins : 100
 
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/new"
-### different splits here
 #tags: "exp2_single,exp3_single,"
-#tags: "exp1_single,exp2_single,exp3_single,"
-tags: "exp8_single_stack"
-#tags: "exp10_single_zdbs"
-
+tags: "exp1_single,exp2_single,exp3_single"
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
 eval_tags : "exp1_single,exp2_single"
+#eval_tags : "exp1_single"
 
 dataset:
   input_train: ''
@@ -36,13 +33,23 @@ plan_net:
   dropout : 0.2
 sys_net:
   # mlp / transformer
-  arch: "avg"
+  #arch: "avg"
   #arch: "mlp"
-  #arch: "transformer"
-  pretrained : 0
-  use_pretrained_norms: 0
+  arch: "transformer"
+  pretrained : 1
+  use_pretrained_norms: 1
   save_weights: 0
-  pretrained_fn: "avg"
+
+  #pretrained_fn: "models2/all_noimdb_128_col1.wt"
+  #pretrained_fn: "models2/all_noimdb_128_col1_fixed.wt"
+  #pretrained_fn: "models2/all_noimdb_128_fixed.wt"
+  pretrained_fn: "models2/noimdb_128_fixed.wt"
+  #pretrained_fn: "models2/noimdb_128_filters_fixed.wt"
+  #pretrained_fn: "models2/noimdb_128_filters_actual_fixed.wt"
+  #pretrained_fn: "models2/stacktpch_128.wt"
+
+  ## includes imdb (ceb-2 and joblight)
+  #pretrained_fn: "models/all_noimdb_128_col1_fixed.wt"
 
   hl: 512
   num_layers: 8
@@ -55,7 +62,7 @@ factorized_net:
   embedding_size: 128
   #arch: "dot"
   #embedding_size: 32
-  pretrained: 0
+  pretrained: 1
   hl: 256
   num_layers: 2
 ...

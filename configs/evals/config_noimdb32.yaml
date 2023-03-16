@@ -1,19 +1,13 @@
 %YAML 1.2
 ---
-split_kind : "instances" # instances,query,...;
-random_split: "random" # random,custom
-num_instances : 1
-seed : 1
-max_set_len : 5000
-num_bins : 250
-
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/new"
-### different splits here
-tags: "exp3_single,exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs"
+tags: "exp2_single,exp3_single,"
+#tags: "exp2_single,"
 use_eval_tags : 1
 eval_dirs : "LatencyCollectorResults/new"
-eval_tags : "exp1_single,exp2_single"
+#eval_tags : "exp1_single,exp3_single"
+eval_tags : "exp1_single"
 
 dataset:
   input_train: ''
@@ -31,10 +25,11 @@ sys_net:
   #arch: "avg"
   #arch: "mlp"
   arch: "transformer"
-  pretrained : 0
+  pretrained : 1
   use_pretrained_norms: 0
   save_weights: 0
-  pretrained_fn: null
+
+  pretrained_fn: "models/all_noimdb_32_fixed.wt"
 
   hl: 512
   num_layers: 8
@@ -43,11 +38,11 @@ sys_net:
   log_skip: 2
 
 factorized_net:
-  arch: "mlp" # dot product
-  embedding_size: 128
-  #arch: "dot"
-  #embedding_size: 32
-  pretrained: 0
+  #arch: "mlp" # dot product
+  #embedding_size: 128
+  arch: "dot"
+  embedding_size: 32
+  pretrained: 1
   hl: 256
   num_layers: 2
 ...
