@@ -302,7 +302,7 @@ def main():
                 v = cargs[k]
             wandbcfg.update({k:v})
 
-    wandb_tags = ["1a"]
+    wandb_tags = ["2a"]
     if args.wandb_tags is not None:
         wandb_tags += args.wandb_tags.split(",")
 

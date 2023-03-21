@@ -348,20 +348,26 @@ def extract_previous_logs(cur_sys_logs, start_time,
     return tmp
 
 LT_FN = "lt_instances.txt"
-LT_TYPES = '''a1_large_mag_4g=lt-0d15fb8f5bbe9a27d
+## ignoring these LT_TYPES for noe
+OTHERS = '''
+a1_large_mag_4g=lt-0d15fb8f5bbe9a27d
+t3a_large_gp3_8g=lt-084bfbae110d52d4e
+r7g_medium_gp2_16g=lt-01d0081183a7d79f2
+'''
+
+LT_TYPES = '''
 a1_large_gp3_4g=lt-04840b55d3f795395
 r7g_large_gp2_16g=lt-0212ec953ba35b176
 t3_large_gp2_8g=lt-05d2d354bc3dd9133
 c5a_large_mag_4g=lt-03218e9e27718bbbe
 m6a_large_mag_8g=lt-0f6f46002652f9a4c
 t3a_medium_gp3_4g=lt-0af65294350b1a8c1
-t3a_large_gp3_8g=lt-084bfbae110d52d4e
 r6a_large_mag_16g=lt-0e608666ff3adff07
 t4g_large_mag_8g=lt-04e0b4826c63bfadb
 c7g_large_mag_4g=lt-0af47c6caa3b53b8b
-r7g_medium_gp2_16g=lt-01d0081183a7d79f2
 t3_xlarge_gp2_16g=lt-0b413bcc22b3ac8fb
 '''
+
 LT_TYPES_DF = pd.read_csv(StringIO(LT_TYPES), sep="=", header=None,
                        names=["lt_type", "lt"])
 
@@ -379,6 +385,8 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
     if os.path.exists(lt_fn_path):
         ltdf = pd.read_csv(lt_fn_path, header=None,
                    names=["instance", "lt"])
+        # excluding some instance types
+        ltdf = ltdf[ltdf["lt"].isin(LT_TYPES_DF["lt"].values)]
         ltdf = ltdf.merge(LT_TYPES_DF, on="lt")
     else:
         return [],[]

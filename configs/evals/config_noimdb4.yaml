@@ -43,9 +43,9 @@ sys_net:
   #pretrained_fn: "models2/all_noimdb_128_col1.wt"
   #pretrained_fn: "models2/all_noimdb_128_col1_fixed.wt"
   #pretrained_fn: "models2/all_noimdb_128_fixed.wt"
-  pretrained_fn: "models2/noimdb_128_fixed.wt"
+  #pretrained_fn: "models2/noimdb_128_fixed.wt"
   #pretrained_fn: "models2/noimdb_128_filters_fixed.wt"
-  #pretrained_fn: "models2/noimdb_128_filters_actual_fixed.wt"
+  pretrained_fn: "models2/noimdb_128_filters_actual_fixed.wt"
   #pretrained_fn: "models2/stacktpch_128.wt"
 
   ## includes imdb (ceb-2 and joblight)
