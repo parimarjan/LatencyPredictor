@@ -4,15 +4,17 @@ import time
 import ntpath
 import os
 import pdb
+from collections import defaultdict
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from latency_predictor.utils import *
 from latency_predictor.algs import *
-from latency_predictor.nn import NN
+from latency_predictor.linux_nn import LinuxNN
 from latency_predictor.eval_fns import *
-from latency_predictor.featurizer import *
+# from latency_predictor.featurizer import *
+from latency_predictor.linux_featurizer import *
 import wandb
 import logging
 import csv
@@ -74,7 +76,7 @@ def get_alg(alg, cfg):
     if alg == "avg":
         return AvgPredictor()
     elif alg == "nn":
-        return NN(
+        return LinuxNN(
                 cfg = cfg,
                 arch = args.arch, hl1 = args.hl1,
                 subplan_ests = args.subplan_ests,
@@ -97,7 +99,7 @@ def get_alg(alg, cfg):
     else:
         assert False
 
-def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
+def eval_alg(alg, loss_funcs, df, sys_logs, samples_type):
     '''
     '''
     np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
@@ -107,10 +109,10 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
     exp_name = alg.get_exp_name()
     start = time.time()
 
-    ests = alg.test(plans, sys_logs)
-    truey = [plan.graph["latency"] for plan in plans]
+    ests = alg.test(df, sys_logs)
+    # truey = [plan.graph["latency"] for plan in plans]
+    truey = df["runtime"].values
     ests = np.array(ests)
-    truey = np.array(truey)
 
     eval_time = round(time.time() - start, 2)
     print("evaluating alg {} took: {} seconds".format(alg_name, eval_time))
@@ -247,7 +249,7 @@ def read_flags():
 
     return parser.parse_args()
 
-def load_dfs(dirs, tags):
+def load_dfs_linux(dirs, tags):
     tags = tags.split(",")
     dirs = dirs.split(",")
 
@@ -256,7 +258,7 @@ def load_dfs(dirs, tags):
 
     for curdir in dirs:
         for tag in tags:
-            cdf,clogs = load_all_logs(tag, curdir,
+            cdf,clogs = load_all_logs_linux(tag, curdir,
                     skip_timeouts=args.skip_timeouts)
 
             if len(clogs) == 0:
@@ -315,12 +317,38 @@ def main():
     print(yaml.dump(cfg, default_flow_style=False))
 
     print("Using tags: ", cfg["tags"].split(","))
-    df,sys_logs = load_dfs(cfg["traindata_dir"], cfg["tags"])
-    df = df[df["runtime"] > 2.0]
+    df,sys_logs = load_dfs_linux(cfg["traindata_dir"], cfg["tags"])
+    tmp = df[df["status"] != 0]
+    df = df[df["status"] == 0]
+    df = df[df["runtime"] > 1.0]
+    df["runtime"] = df.apply(lambda x: min(x["runtime"], 909.0) , axis=1)
+    print("Skipped {} failed jobs".format(len(tmp)))
+
+    jobs = set(df["jobhash"])
+
+    flatdata = defaultdict(list)
+    for jh in jobs:
+        tmp = df[df["jobhash"] == jh]
+        added = False
+        added_stats = set()
+        for idx,row in tmp.iterrows():
+            if row["stat_name"] == "LLC-load-misses":
+                continue
+            if row["stat_name"] not in added_stats:
+                flatdata[row["stat_name"]].append(row["value"])
+                flatdata[row["stat_name"]+"#"].append(row["value2"])
+                added_stats.add(row["stat_name"])
+
+            if not added:
+                for k in row.keys():
+                    if k not in ["value", "value2", "stat_name", "unit",
+                            "util?", "unit2"]:
+                        flatdata[k].append(row[k])
+                added = True
+
+    df = pd.DataFrame(flatdata)
 
     train_df, test_df = split_workload(df, cfg)
-    train_plans = get_plans(train_df)
-    test_plans = get_plans(test_df)
 
     print("Train instance types: ", set(train_df["lt_type"]))
     print("Test instance types: ", set(test_df["lt_type"]))
@@ -328,31 +356,31 @@ def main():
     test_qnames = set(test_df["qname"])
 
     if cfg["use_eval_tags"]:
+        assert False
         ## new envs
-        df,sys_logs2 = load_dfs(cfg["eval_dirs"], cfg["eval_tags"])
-        sys_logs.update(sys_logs2)
+        # df,sys_logs2 = load_dfs(cfg["eval_dirs"], cfg["eval_tags"])
+        # sys_logs.update(sys_logs2)
 
-        seendf = df[df["qname"].isin(train_qnames)]
-        unseendf = df[~df["qname"].isin(train_qnames)]
+        # seendf = df[df["qname"].isin(train_qnames)]
+        # unseendf = df[~df["qname"].isin(train_qnames)]
 
-        new_env_seen_plans = get_plans(seendf)
-        new_env_unseen_plans = get_plans(unseendf)
+        # new_env_seen_plans = get_plans(seendf)
+        # new_env_unseen_plans = get_plans(unseendf)
     else:
         new_env_seen_plans = []
         new_env_unseen_plans = []
 
-    print("Training queries: {}, Training plans: {},\
-Test queries: {}, Test Plans: {}, New Env Seen Plans: {}\
-New Env Unseen Plans: {}".format(
-        len(train_qnames), len(train_plans), len(test_qnames),
-        len(test_plans),len(new_env_seen_plans),len(new_env_unseen_plans)))
+    print("Training cmds: {}, Training execs: {},\
+Test cmds: {}, Test execs: {}".format(
+        len(train_qnames), len(train_df), len(test_qnames),
+        len(test_df)))
 
-    if args.feat_normalization_data == "train":
-        feat_plans = train_plans
-    elif args.feat_normalization_data == "all":
-        feat_plans = train_plans + test_plans + new_env_seen_plans + new_env_unseen_plans
+    # if args.feat_normalization_data == "train":
+        # feat_plans = train_plans
+    # elif args.feat_normalization_data == "all":
+        # feat_plans = train_plans + test_plans + new_env_seen_plans + new_env_unseen_plans
 
-    featurizer = Featurizer(train_plans,
+    featurizer = LinuxFeaturizer(train_df,
                             sys_logs,
                             cfg,
                             actual_feats = args.actual_feats,
@@ -360,7 +388,6 @@ New Env Unseen Plans: {}".format(
                             feat_noncumulative_costs = args.feat_noncumulative_costs,
                             log_transform_y = args.log_transform_y,
                             global_feats=args.global_feats,
-                            # feat_normalization_data=args.feat_normalization_data,
                             y_normalization_data=args.y_normalization_data,
                             feat_subtree_summary = args.feat_subtree_summary,
                             normalizer = args.normalizer,
@@ -384,24 +411,24 @@ New Env Unseen Plans: {}".format(
     for l in eval_fn_names:
         eval_fns.append(get_eval_fn(l))
 
-    alg.train(train_plans,
+    alg.train(train_df,
             sys_logs,
             featurizer,
-            test = test_plans,
-            new_env_seen= new_env_seen_plans,
-            new_env_unseen = new_env_unseen_plans,
+            test = test_df,
+            new_env_seen= [],
+            new_env_unseen = [],
             )
 
-    eval_alg(alg, eval_fns, train_plans, sys_logs, "train")
+    eval_alg(alg, eval_fns, train_df, sys_logs, "train")
 
-    if len(test_plans) > 0:
-        eval_alg(alg, eval_fns, test_plans, sys_logs, "test")
+    if len(test_df) > 0:
+        eval_alg(alg, eval_fns, test_df, sys_logs, "test")
 
-    if len(new_env_seen_plans) > 0:
-        eval_alg(alg, eval_fns, new_env_seen_plans, sys_logs, "new_env_seen")
+    # if len(new_env_seen_plans) > 0:
+        # eval_alg(alg, eval_fns, new_env_seen_plans, sys_logs, "new_env_seen")
 
-    if len(new_env_unseen_plans) > 0:
-        eval_alg(alg, eval_fns, new_env_unseen_plans, sys_logs, "new_env_unseen")
+    # if len(new_env_unseen_plans) > 0:
+        # eval_alg(alg, eval_fns, new_env_unseen_plans, sys_logs, "new_env_unseen")
 
 if __name__ == "__main__":
     # mp.set_start_method('spawn')

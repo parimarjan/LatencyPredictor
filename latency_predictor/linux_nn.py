@@ -12,7 +12,7 @@ import sys
 import time
 import glob
 
-from latency_predictor.dataset import *
+from latency_predictor.dataset import LinuxJobDataset
 from latency_predictor.eval_fns import *
 from latency_predictor.utils import *
 from latency_predictor.nets import *
@@ -32,18 +32,8 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-# PERCENTILES_TO_SAVE = [50, 99]
-PERCENTILES_TO_SAVE = []
-def percentile_help(q):
-    def f(arr):
-        return np.percentile(arr, q)
-    return f
-
-def collate_fn_gcn(Z):
-    return torch_geometric.data.Batch.from_data_list(Z).to(device)
-
-def collate_fn_gcn2(X):
-    Z = [x["graph"] for x in X]
+def collate_fn_linux(X):
+    Z = [x["x"] for x in X]
     S = []
     infos = []
 
@@ -59,10 +49,20 @@ def collate_fn_gcn2(X):
                     mode="constant",value=0))
 
     ret = {}
-    ret["graph"] = torch_geometric.data.Batch.from_data_list(Z).to(device)
+    ret["x"] = torch.stack(Z)
     ret["sys_logs"] = torch.stack(S)
     ret["info"] = infos
+    print(X)
+    print(ret)
+    pdb.set_trace()
     return ret
+
+# PERCENTILES_TO_SAVE = [50, 99]
+PERCENTILES_TO_SAVE = []
+def percentile_help(q):
+    def f(arr):
+        return np.percentile(arr, q)
+    return f
 
 def qloss_torch(yhat, ytrue):
     min_est = np.array([0.1]*len(yhat))
@@ -75,7 +75,7 @@ def qloss_torch(yhat, ytrue):
     errors = torch.max( (ytrue / yhat), (yhat / ytrue))
     return torch.mean(errors)
 
-class NN(LatencyPredictor):
+class LinuxNN(LatencyPredictor):
     def __init__(self, *args, cfg={}, **kwargs):
         self.exp_version = None
         self.kwargs = kwargs
@@ -87,7 +87,8 @@ class NN(LatencyPredictor):
             self.__setattr__(k, val)
 
         # self.collate_fn = collate_fn_gcn
-        self.collate_fn = collate_fn_gcn2
+        # self.collate_fn = collate_fn_gcn2
+        self.collate_fn = None
 
         if self.loss_fn_name == "mse":
             self.loss_fn = torch.nn.MSELoss()
@@ -113,34 +114,8 @@ class NN(LatencyPredictor):
         self.log_stat_fmt = "{samples_type}-{loss_type}"
 
     def _init_net(self):
-        if self.arch in ["gcn","gat"]:
-            self.net = SimpleGCN(self.featurizer.num_features,
-                    self.featurizer.num_global_features,
-                    self.hl1, self.num_conv_layers,
-                    final_act=self.final_act,
-                    subplan_ests = self.subplan_ests,
-                    out_feats=1,
-                    dropout=self.cfg["plan_net"]["dropout"],
-                    arch=self.cfg["plan_net"]["arch"],
-                    )
-        elif self.arch == "avg":
-            self.net = LogAvgRegression(
-                    self.featurizer.num_syslog_features,
-                    1, 4, self.hl1)
-        elif self.arch == "tst":
-            self.net = TSTLogs(
-                    self.featurizer.num_syslog_features,
-                    1, 4, self.hl1)
-        elif self.arch == "transformerlogs":
-            self.net = TransformerLogs(
-                    self.featurizer.num_syslog_features,
-                    1, 4,
-                    self.cfg["sys_net"]["num_layers"],
-                    self.cfg["sys_net"]["num_heads"],
-                    int(self.cfg["sys_net"]["log_prev_secs"] / 10),
-                    )
-        elif self.arch == "factorized":
-            self.net = FactorizedLatencyNet(self.cfg,
+        if self.arch == "factorized":
+            self.net = FactorizedLinuxNet(self.cfg,
                     self.featurizer.num_features,
                     self.featurizer.num_global_features,
                     self.featurizer.num_syslog_features,
@@ -178,30 +153,13 @@ class NN(LatencyPredictor):
         epoch_losses = []
 
         for bidx, data in enumerate(self.traindl):
-            # y = data.y.to(device)
-            y = data["graph"].y.to(device)
+            y = torch.tensor(data["y"], dtype=torch.float32).to(device)
             yhat = self.net(data)
 
-            if self.subplan_ests:
-                assert False
-                # yhat = yhat.squeeze()
-                # # yhat = yhat*(y != 0.0)
-                # assert y.shape == yhat.shape
-                # yhat = yhat[y != 0.0]
-                # y = y[y != 0.0]
-                # loss = self.loss_fn(yhat, y)
-                # if self.subplan_sum_loss:
-                    # ## not clear if this will add anything to it
-                    # ysum = torch.sum(yhat)
-                    # ytruesum = torch.sum(y)
-                    # loss2 = self.loss_fn(ysum, ytruesum)
-                    # loss = loss + loss2
-            else:
-                if len(yhat.shape) > len(y.shape):
-                    yhat = yhat.squeeze()
-                assert y.shape == yhat.shape
-                loss = self.loss_fn(yhat, y)
-
+            if len(yhat.shape) > len(y.shape):
+                yhat = yhat.squeeze()
+            assert y.shape == yhat.shape
+            loss = self.loss_fn(yhat, y)
             epoch_losses.append(loss.item())
 
             self.optimizer.zero_grad()
@@ -220,14 +178,14 @@ class NN(LatencyPredictor):
         if self.cfg["sys_net"]["save_weights"]:
             torch.save(self.net.sys_net.state_dict(),
                     self.cfg["sys_net"]["pretrained_fn"])
-            print("saved sys net: ", self.cfg["sys_net"]["pretrained_fn"])
+            # print("saved sys net: ", self.cfg["sys_net"]["pretrained_fn"])
 
             if hasattr(self.net, "fact_net"):
                 fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
                                                                      "/fact_")
                 torch.save(self.net.fact_net.state_dict(),
                         fname)
-                print("saved fact net: ", fname)
+                # print("saved fact net: ", fname)
 
 
     def log(self, losses, loss_type, samples_type):
@@ -247,9 +205,9 @@ class NN(LatencyPredictor):
             if self.use_wandb:
                 wandb.log({stat_name: loss, "epoch":self.epoch})
 
-    def setup_workload(self, kind, plans, sys_logs):
-        if len(plans) != 0:
-            ds = QueryPlanDataset(plans,
+    def setup_workload(self, kind, df, sys_logs):
+        if len(df) != 0:
+            ds = LinuxJobDataset(df,
                     sys_logs,
                     self.featurizer,
                     self.cfg["sys_net"],
@@ -262,15 +220,14 @@ class NN(LatencyPredictor):
             self.eval_ds[kind] = ds
             self.eval_loaders[kind] = dl
 
-    def train(self, train_plans, sys_logs, featurizer,
+    def train(self, df, sys_logs, featurizer,
             test=[],
             new_env_seen = [], new_env_unseen = [],
             ):
 
         self.featurizer = featurizer
-        # self.sys_log_feats = sys_log_feats
 
-        self.ds = QueryPlanDataset(train_plans,
+        self.ds = LinuxJobDataset(df,
                 sys_logs,
                 self.featurizer,
                 self.cfg["sys_net"],
@@ -293,22 +250,6 @@ class NN(LatencyPredictor):
         self.setup_workload("test", test, sys_logs)
         self.setup_workload("new_env_seen", new_env_seen, sys_logs)
         self.setup_workload("new_env_unseen", new_env_unseen, sys_logs)
-
-        # if len(test) != 0:
-            # ds = QueryPlanDataset(test,
-                    # sys_logs,
-                    # self.featurizer,
-                    # self.cfg["sys_net"],
-                    # subplan_ests=self.subplan_ests,
-                    # )
-            # dl = torch.utils.data.DataLoader(ds,
-                    # batch_size=self.batch_size,
-                    # shuffle=False, collate_fn=self.collate_fn)
-
-            # self.eval_ds["test"] = ds
-            # self.eval_loaders["test"] = dl
-
-        ## TODO: initialize for other datasets
 
         self._init_net()
         print(self.net)
@@ -378,35 +319,37 @@ class NN(LatencyPredictor):
         with torch.no_grad():
             for data in dl:
                 yhat = self.net(data)
-                # y = data.y
+                y = torch.tensor(data["y"], dtype=torch.float32).to(device)
 
-                y = data["graph"].y
                 if len(yhat.shape) > len(y.shape):
                     yhat = yhat.squeeze()
 
                 # y = data.y
                 # y = y.item()
                 # trueys.append(self.featurizer.unnormalizeY(y))
-
                 assert yhat.shape == y.shape
+                for yh in yhat:
+                    res.append(yh)
+                for truey in y:
+                    trueys.append(truey)
 
-                for gi in range(data["graph"].num_graphs):
-                    trueys.append(self.featurizer.unnormalizeY(y[gi].item()))
+                # for gi in range(data["graph"].num_graphs):
+                    # trueys.append(self.featurizer.unnormalizeY(y[gi].item()))
 
-                if self.subplan_ests:
-                    assert False
-                else:
-                    # yh = yhat.item()
-                    # res.append(self.featurizer.unnormalizeY(yh))
-                    for gi in range(data["graph"].num_graphs):
-                        res.append(self.featurizer.unnormalizeY(yhat[gi].item()))
+                # if self.subplan_ests:
+                    # assert False
+                # else:
+                    # # yh = yhat.item()
+                    # # res.append(self.featurizer.unnormalizeY(yh))
+                    # for gi in range(data["graph"].num_graphs):
+                        # res.append(self.featurizer.unnormalizeY(yhat[gi].item()))
 
         # self.net.train()
         # self.net.gcn_net.train()
         return res,trueys
 
-    def test(self, plans, sys_logs):
-        ds = QueryPlanDataset(plans,
+    def test(self, df, sys_logs):
+        ds = LinuxJobDataset(df,
                 sys_logs,
                 self.featurizer,
                 self.cfg["sys_net"],

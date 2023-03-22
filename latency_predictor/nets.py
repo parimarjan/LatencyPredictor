@@ -36,6 +36,11 @@ class FactorizedLatencyNet(torch.nn.Module):
                     dropout=cfg["plan_net"]["dropout"],
                     arch=cfg["plan_net"]["arch"],
                     )
+        elif cfg["plan_net"]["arch"] == "mlp":
+            self.job_net = SimpleRegression(num_plan_features,
+                cfg["factorized_net"]["embedding_size"],
+                cfg["plan_net"]["num_layers"],
+                cfg["plan_net"]["hl"])
 
         if cfg["sys_net"]["arch"] == "mlp":
             self.sys_net = LogAvgRegression(
@@ -79,6 +84,82 @@ class FactorizedLatencyNet(torch.nn.Module):
 
     def forward(self, data):
         xplan = self.gcn_net(data)
+        xsys = self.sys_net(data)
+
+        if self.fact_arch == "mlp":
+            xplan = xplan.squeeze()
+            ## old, w/ batch = 1
+            # emb_out = torch.cat([xplan, xsys])
+            emb_out = torch.cat([xsys,xplan], axis=-1)
+            out = self.fact_net(emb_out)
+
+        elif self.fact_arch == "dot":
+            out = torch.bmm(xsys.view(xsys.shape[0], 1, xsys.shape[1]),
+                    xplan.view(xplan.shape[0], xplan.shape[1], 1)).squeeze()
+
+        return out
+
+class FactorizedLinuxNet(torch.nn.Module):
+    def __init__(self,
+            cfg,
+            num_plan_features,
+            num_global_features,
+            num_sys_features,
+            subplan_ests=False,
+            out_feats=1,
+            final_act="none"):
+        super(FactorizedLinuxNet, self).__init__()
+
+        self.fact_arch = cfg["factorized_net"]["arch"]
+        if cfg["plan_net"]["arch"] == "mlp":
+            self.job_net = SimpleRegression(num_plan_features,
+                cfg["factorized_net"]["embedding_size"],
+                cfg["plan_net"]["num_layers"],
+                cfg["plan_net"]["hl"])
+
+        if cfg["sys_net"]["arch"] == "mlp":
+            self.sys_net = LogAvgRegression(
+                    num_sys_features,
+                    cfg["factorized_net"]["embedding_size"],
+                    cfg["sys_net"]["num_layers"],
+                    cfg["sys_net"]["hl"]
+                    )
+            self.sys_net.to(device)
+
+        elif cfg["sys_net"]["arch"] == "transformer":
+            self.sys_net = TransformerLogs(
+                    num_sys_features,
+                    cfg["factorized_net"]["embedding_size"],
+                    cfg["sys_net"]["num_layers"],
+                    cfg["sys_net"]["hl"],
+                    cfg["sys_net"]["num_heads"],
+                    MAX_LOG_LEN,
+                    )
+            self.sys_net.to(device)
+
+        elif cfg["sys_net"]["arch"] == "avg":
+            self.sys_net = torch_avg
+
+        if cfg["factorized_net"]["arch"] == "mlp":
+
+            if cfg["sys_net"]["arch"] == "avg":
+                emb_size = cfg["factorized_net"]["embedding_size"] + \
+                            num_sys_features
+            else:
+                emb_size = cfg["factorized_net"]["embedding_size"]*2
+
+            self.fact_net = SimpleRegression(
+                    emb_size,
+                    1, cfg["factorized_net"]["num_layers"],
+                    cfg["factorized_net"]["hl"])
+            self.fact_net.to(device)
+
+        elif cfg["factorized_net"]["arch"] == "dot":
+            pass
+
+    def forward(self, data):
+        # xplan = self.gcn_net(data)
+        xplan = self.job_net(data["x"])
         xsys = self.sys_net(data)
 
         if self.fact_arch == "mlp":

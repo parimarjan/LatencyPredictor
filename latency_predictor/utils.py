@@ -475,7 +475,115 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
 
     return df, all_logs
 
+PERF_NAMES = ["value", "unit", "stat_name", "job_time", "util?",
+	"value2", "unit2"]
 
+def load_all_logs_linux(inp_tag, inp_dir, skip_timeouts=False):
+    inp_dir = os.path.join(inp_dir, inp_tag)
+    if not os.path.exists(inp_dir):
+        print("no exists")
+        return [],[]
+
+    dfs = []
+    all_logs = {}
+
+    instance_dirs = os.listdir(inp_dir)
+    lt_fn_path = os.path.join(inp_dir, LT_FN)
+    if os.path.exists(lt_fn_path):
+        ltdf = pd.read_csv(lt_fn_path, header=None,
+                   names=["instance", "lt"])
+        ltdf = ltdf.merge(LT_TYPES_DF, on="lt")
+    else:
+        print("lt fn path doesn't exist")
+        return [],[]
+
+    for iname in instance_dirs:
+        curdir = os.path.join(inp_dir, iname)
+        if not os.path.isdir(curdir):
+            continue
+
+        perfcsvs = glob.iglob(curdir + "/results/perf/*.csv")
+        cmds_fn = curdir + "/results/perf/allcommands.csv"
+
+        cmdsdf = pd.read_csv(cmds_fn,
+				names=["jobhash", "cmd", "fn", "start_time","runtime", "status"],
+                             header=None)
+        curdfs = []
+
+        for pfn in perfcsvs:
+            hashcsv = os.path.basename(pfn)
+            jobhash = hashcsv.replace(".csv", "")
+
+            if "allcommands" in pfn:
+                continue
+            try:
+                currt = pd.read_csv(pfn, skiprows=1,
+                                    names = PERF_NAMES,
+                                    header=None)
+                #print(currt)
+            except Exception as e:
+                print(e)
+                continue
+            if len(currt) == 0:
+                continue
+
+            currt["jobhash"] = jobhash
+            currt["instance"] = iname
+            curdfs.append(currt)
+
+        if len(curdfs) == 0:
+            continue
+
+        currt = pd.concat(curdfs)
+        if len(currt) == 0:
+            continue
+
+        #print(currt)
+        currt = currt.merge(ltdf, on="instance")
+        currt = currt.merge(cmdsdf, on="jobhash")
+
+        if len(currt) == 0:
+            print(iname, "rt == 0")
+            continue
+
+        curlogs = load_sys_logs(curdir)
+
+        # skip queries which are outside logged time
+        if len(curlogs) == 0:
+            continue
+
+        curlogs = curlogs.dropna()
+        if len(curlogs) == 0:
+            continue
+
+        # remove part of logs which aren't in currts
+        # max_query_start = max(currt["start_time"].values) + 60.0
+        # min_query_start = min(currt["start_time"].values) - 650.0
+        # curlogs = curlogs[curlogs["timestamp"] > min_query_start]
+        # curlogs = curlogs[curlogs["timestamp"] < max_query_start]
+
+        if len(curlogs) == 0:
+            print("curlogs == 0 after filtering for: ", inp_tag)
+            continue
+
+        if len(currt) == 0:
+            continue
+
+        dfs.append(currt)
+        all_logs[iname] = curlogs
+
+    if len(dfs) == 0:
+        return [],[]
+
+    df = pd.concat(dfs)
+
+    if len(all_logs) == 0:
+        return [],[]
+
+    df["qname"] = df.apply(lambda x: x["fn"]+x["cmd"] ,
+            axis=1)
+
+    return df, all_logs
 
 def to_variable(arr, use_cuda=True, requires_grad=False):
     if isinstance(arr, list) or isinstance(arr, tuple):
