@@ -507,7 +507,8 @@ def load_all_logs_linux(inp_tag, inp_dir, skip_timeouts=False):
 
         cmdsdf = pd.read_csv(cmds_fn,
 				names=["jobhash", "cmd", "fn", "start_time","runtime", "status"],
-                             header=None)
+                error_bad_lines=False,
+                header=None)
         curdfs = []
 
         for pfn in perfcsvs:
