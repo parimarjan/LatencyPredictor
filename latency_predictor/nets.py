@@ -82,7 +82,11 @@ class FactorizedLatencyNet(torch.nn.Module):
         elif cfg["factorized_net"]["arch"] == "attention":
         # def __init__(self, emb, heads, depth, seq_length, num_classes,
                 # max_pool=True, dropout=0.2, wide=True):
-            self.fact_net = RegressionTransformer(
+            # self.fact_net = RegressionTransformer(
+                    # cfg["factorized_net"]["embedding_size"]*2,
+                    # 4, 1, 1, 1,
+                    # ).to(device)
+            self.fact_net = AttentionFactNet(
                     cfg["factorized_net"]["embedding_size"]*2,
                     4, 1, 1, 1,
                     ).to(device)
@@ -169,10 +173,16 @@ class FactorizedLinuxNet(torch.nn.Module):
             self.fact_net.to(device)
 
         elif cfg["factorized_net"]["arch"] == "attention":
-            self.fact_net = RegressionTransformer(
+            ## TODO: combine this + SimpleRegression module
+            # self.fact_net = RegressionTransformer(
+                    # cfg["factorized_net"]["embedding_size"]*2,
+                    # 4, 1, 1, 1,
+                    # layernorm=False,
+                    # ).to(device)
+
+            self.fact_net = AttentionFactNet(
                     cfg["factorized_net"]["embedding_size"]*2,
                     4, 1, 1, 1,
-                    layernorm=False,
                     ).to(device)
             self.fact_net.to(device)
 
@@ -202,6 +212,30 @@ class FactorizedLinuxNet(torch.nn.Module):
                     xplan.view(xplan.shape[0], xplan.shape[1], 1)).squeeze()
 
         return out
+
+class AttentionFactNet(torch.nn.Module):
+    def __init__(self, emb, heads, depth, seq_length, num_classes,
+            max_pool=True, dropout=0.2, wide=True, layernorm=True):
+        super(AttentionFactNet, self).__init__()
+        self.trans = RegressionTransformer(
+                emb,
+                heads, depth, seq_length, emb,
+                ).to(device)
+        self.final = SimpleRegression(emb,
+            num_classes,
+            2, 512)
+
+    def forward(self, x):
+        #x = data["sys_logs"]
+        x = x.to(device, non_blocking=True)
+        x = self.trans(x)
+        return self.final(x)
+
+        # if len(x.shape) == 2:
+            # # batch size is implicitly 1
+            # x = x.unsqueeze(dim=0)
+        # return self.net(x).squeeze(dim=0)
+
 
 class TransformerLogs(torch.nn.Module):
     def __init__(self, input_width, n_output,
