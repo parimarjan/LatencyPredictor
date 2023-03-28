@@ -42,83 +42,93 @@ class Featurizer():
         self.val_idxs = {}
         self.idx_lens = {}
 
-        ## handling plan features / normalizations
-        attrs = defaultdict(set)
-        self._update_attrs(plans, attrs)
-        if self.y_normalizer != "none":
-            assert False
+        if self.cfg["plan_net"]["arch"] == "onehot":
+            # onehot based on qname
+            qnames = [g.graph["qname"] for g in plans]
+            qnames.sort()
+            self.qname_idxs = {}
+            for qi,qname in enumerate(qnames):
+                self.qname_idxs[qname] = qi
+            self.num_features = len(qnames)
+            print("Features based on: ", qnames)
+        else:
+            ## handling plan features / normalizations
+            attrs = defaultdict(set)
+            self._update_attrs(plans, attrs)
+            if self.y_normalizer != "none":
+                assert False
 
-        # for graph features, each node will reserve spots for each of the
-        # features
-        self.cur_feature_idx = 0
-        self.num_features = 0
-        self.num_global_features = 0
-        used_keys = set()
+            # for graph features, each node will reserve spots for each of the
+            # features
+            self.cur_feature_idx = 0
+            self.num_features = 0
+            self.num_global_features = 0
+            used_keys = set()
 
-        for k,v in attrs.items():
-            if k in self.ignore_node_feats:
-                print("ignoring node feature of type: {}, with {} elements".format(k, len(v)))
-                continue
-
-            # if "Actual" in k and not self.actual_feats:
-                # continue
-            if self.actual_feats and "Actual" in k:
-                if not "ActualRows" in k:
+            for k,v in attrs.items():
+                if k in self.ignore_node_feats:
+                    print("ignoring node feature of type: {}, with {} elements".format(k, len(v)))
                     continue
-            else:
-                if "Actual" in k:
+
+                # if "Actual" in k and not self.actual_feats:
+                    # continue
+                if self.actual_feats and "Actual" in k:
+                    if not "ActualRows" in k:
+                        continue
+                else:
+                    if "Actual" in k:
+                        continue
+
+                if len(v) == 1:
                     continue
 
-            if len(v) == 1:
-                continue
+                self.idx_starts[k] = self.cur_feature_idx
+                used_keys.add(k)
 
-            self.idx_starts[k] = self.cur_feature_idx
-            used_keys.add(k)
+                v0 = random.sample(v, 1)[0]
 
-            v0 = random.sample(v, 1)[0]
+                if is_float(v0):
+                    # print(k, ": continuous feature")
+                    cvs = [float(v0) for v0 in v]
+                    if self.normalizer == "min-max":
+                        self.normalization_stats[k] = (min(cvs), max(cvs))
+                    elif self.normalizer == "std":
+                        self.normalization_stats[k] = (np.mean(cvs), np.std(cvs))
+                    else:
+                        assert False
 
-            if is_float(v0):
-                # print(k, ": continuous feature")
-                cvs = [float(v0) for v0 in v]
-                if self.normalizer == "min-max":
-                    self.normalization_stats[k] = (min(cvs), max(cvs))
-                elif self.normalizer == "std":
-                    self.normalization_stats[k] = (np.mean(cvs), np.std(cvs))
+                    self.idx_types[k] = "cont"
+                    self.idx_lens[k] = 1
+                    self.cur_feature_idx += 1
+                    self.num_features += 1
+
+                elif len(v) < self.cfg["max_set_len"]:
+                    if len(v) < self.cfg["num_bins"]:
+                        print(k, ": one-hot using bins")
+                        num_vals = len(v)
+                        self.idx_types[k] = "one-hot"
+                        # each unique value is mapped to an index
+                        self.val_idxs[k] = {}
+                        v = list(v)
+                        v.sort()
+                        for i, ve in enumerate(v):
+                            self.val_idxs[k][ve] = i
+                    else:
+                        print(k, ": feature-hashing")
+                        num_vals = self.cfg["num_bins"]
+                        self.idx_types[k] = "feature-hashing"
+
+                    self.idx_lens[k] = num_vals
+                    self.num_features += num_vals
+                    self.cur_feature_idx += num_vals
+
                 else:
-                    assert False
+                    print("skipping features {}, because too many values: {}"\
+                            .format(k, len(v)))
+                    # pdb.set_trace()
+                    del self.idx_starts[k]
 
-                self.idx_types[k] = "cont"
-                self.idx_lens[k] = 1
-                self.cur_feature_idx += 1
-                self.num_features += 1
-
-            elif len(v) < self.cfg["max_set_len"]:
-                if len(v) < self.cfg["num_bins"]:
-                    print(k, ": one-hot using bins")
-                    num_vals = len(v)
-                    self.idx_types[k] = "one-hot"
-                    # each unique value is mapped to an index
-                    self.val_idxs[k] = {}
-                    v = list(v)
-                    v.sort()
-                    for i, ve in enumerate(v):
-                        self.val_idxs[k][ve] = i
-                else:
-                    print(k, ": feature-hashing")
-                    num_vals = self.cfg["num_bins"]
-                    self.idx_types[k] = "feature-hashing"
-
-                self.idx_lens[k] = num_vals
-                self.num_features += num_vals
-                self.cur_feature_idx += num_vals
-
-            else:
-                print("skipping features {}, because too many values: {}"\
-                        .format(k, len(v)))
-                # pdb.set_trace()
-                del self.idx_starts[k]
-
-        print("Features based on: ", used_keys)
+            print("Features based on: ", used_keys)
 
         if self.cfg["sys_net"]["pretrained"]:
             if self.cfg["sys_net"]["use_pretrained_norms"]:

@@ -197,7 +197,6 @@ def load_sys_logs(inp_dir):
         try:
             curdf = pd.read_csv(fn, delimiter=";")
         except Exception as e:
-            print(e)
             continue
         if len(curdf) == 0:
             continue
@@ -317,7 +316,7 @@ def get_plans(df):
         try:
             plan = eval(str(exp))
         except Exception as e:
-            print(e)
+            # print(e)
             continue
 
         G = explain_to_nx(plan[0][0][0])
@@ -441,7 +440,7 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
         try:
             currt = currt[currt["start_time"] <= maxlogtime]
         except Exception as e:
-            print(e)
+            # print(e)
             continue
 
         if len(currt) == 0:
@@ -523,7 +522,7 @@ def load_all_logs_linux(inp_tag, inp_dir, skip_timeouts=False):
                                     header=None)
                 #print(currt)
             except Exception as e:
-                print(e)
+                # print(e)
                 continue
             if len(currt) == 0:
                 continue
@@ -536,6 +535,7 @@ def load_all_logs_linux(inp_tag, inp_dir, skip_timeouts=False):
             continue
 
         currt = pd.concat(curdfs)
+        currt = currt[currt["jobhash"].isin(cmdsdf["jobhash"].values)]
         if len(currt) == 0:
             continue
 

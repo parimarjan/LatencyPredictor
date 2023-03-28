@@ -7,6 +7,11 @@ from torch_geometric.data import Data
 import torch
 import pickle
 
+PERF_FEATS = ['cycles', 'cycles#', 'instructions', 'instructions#',
+        'cache-misses', 'cache-misses#', 'page-faults', 'page-faults#',
+        'branch-misses', 'branch-misses#', 'context-switches',
+        'context-switches#', 'L1-dcache-load-misses', 'L1-dcache-load-misses#']
+
 class LinuxFeaturizer():
     def __init__(self,
             df,
@@ -39,8 +44,59 @@ class LinuxFeaturizer():
             self.num_features = 0
             used_keys = set()
             print("Features based on: ", used_keys)
-            # TODO:
-            pdb.set_trace()
+            # for each job, we will have a unique feature set, based on one
+            # instance type
+            qnames = list(set(df["qname"]))
+            qnames.sort()
+            self.qname_features = {}
+            defdf = df[df["lt_type"] == "r7g_large_gp2_16g"]
+            normalizers = {}
+
+            for key in defdf.keys():
+                if key in PERF_FEATS:
+                    try:
+                        #pdb.set_trace()
+                        tmp = defdf[defdf[key].notna()]
+                        if len(tmp) == 0:
+                            continue
+                        if not "float" in str(tmp[key].dtype):
+                            tmp = tmp[~tmp[key].str.contains('not', na=False)]
+                            if len(tmp) == 0:
+                                continue
+                        vals = tmp[tmp[key].notna()][key].astype(float)
+                    except Exception as e:
+                        print(key)
+                        print(e)
+                        pdb.set_trace()
+                        continue
+                    if len(vals) == 0:
+                        continue
+                    normalizers[key] = (np.mean(vals),
+                            np.std(vals))
+
+            featkeys = list(normalizers.keys())
+            featkeys.sort()
+
+            for qi,qname in enumerate(qnames):
+                tmp = defdf[defdf["qname"] == qname]
+                feats = np.zeros(len(featkeys))
+                for ki, key in enumerate(featkeys):
+                    if key not in normalizers:
+                        continue
+                    tmp = tmp[tmp[key].notna()]
+                    if len(tmp) == 0:
+                        continue
+                    try:
+                        val = np.mean(tmp[key])
+                    except:
+                        continue
+                    feats[ki] = (val - normalizers[key][0]) / (normalizers[key][1])
+
+                self.qname_features[qname] = feats
+
+            self.num_features = len(featkeys)
+            print("Features based on: ", featkeys)
+
         elif self.cfg["plan_net"]["feat_type"] == "onehot":
             # onehot based on qname
             qnames = list(set(df["qname"]))
@@ -220,13 +276,12 @@ class LinuxFeaturizer():
             assert False
 
     def get_linux_feats(self, row):
-        feats = np.zeros(self.num_features)
         if self.cfg["plan_net"]["feat_type"] == "onehot":
+            feats = np.zeros(self.num_features)
             idx = self.qname_idxs[row["qname"]]
             feats[idx] = 1.0
         else:
-            assert False
-            return None
+            feats = self.qname_features[row["qname"]]
 
         feats = torch.tensor(feats, dtype=torch.float)
         return feats

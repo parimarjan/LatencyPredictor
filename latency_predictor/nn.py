@@ -46,10 +46,12 @@ def collate_fn_gcn2(X):
     Z = [x["graph"] for x in X]
     S = []
     infos = []
+    Ys = []
 
     for curx in X:
         x = curx["sys_logs"]
         infos.append(curx["info"])
+        Ys.append(curx["y"])
         if len(x.shape) == 1:
             S.append(x)
         else:
@@ -62,6 +64,8 @@ def collate_fn_gcn2(X):
     ret["graph"] = torch_geometric.data.Batch.from_data_list(Z).to(device)
     ret["sys_logs"] = torch.stack(S)
     ret["info"] = infos
+    ret["y"] = torch.tensor(Ys, dtype=torch.float)
+
     return ret
 
 def qloss_torch(yhat, ytrue):
@@ -178,8 +182,8 @@ class NN(LatencyPredictor):
         epoch_losses = []
 
         for bidx, data in enumerate(self.traindl):
-            # y = data.y.to(device)
-            y = data["graph"].y.to(device)
+
+            y = data["y"].to(device)
             yhat = self.net(data)
 
             if self.subplan_ests:
@@ -380,7 +384,8 @@ class NN(LatencyPredictor):
                 yhat = self.net(data)
                 # y = data.y
 
-                y = data["graph"].y
+                # y = data["graph"].y
+                y = data["y"]
                 if len(yhat.shape) > len(y.shape):
                     yhat = yhat.squeeze()
 

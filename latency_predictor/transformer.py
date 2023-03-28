@@ -147,12 +147,13 @@ class SelfAttentionNarrow(nn.Module):
 class TransformerBlock(nn.Module):
 
     def __init__(self, emb, heads, mask, seq_length, ff_hidden_mult=4,
-            dropout=0.2, wide=True):
+            dropout=0.2, wide=True, layernorm=True):
         super().__init__()
 
         self.attention = SelfAttentionWide(emb, heads=heads, mask=mask) if wide \
                     else SelfAttentionNarrow(emb, heads=heads, mask=mask)
         self.mask = mask
+        self.layernorm = layernorm
 
         self.norm1 = nn.LayerNorm(emb)
         self.norm2 = nn.LayerNorm(emb)
@@ -166,16 +167,17 @@ class TransformerBlock(nn.Module):
         self.do = nn.Dropout(dropout)
 
     def forward(self, x):
-
-        ## original code:
         attended = self.attention(x)
 
-        x = self.norm1(attended + x)
+        if self.layernorm:
+            x = self.norm1(attended + x)
 
         x = self.do(x)
 
         fedforward = self.ff(x)
-        x = self.norm2(fedforward + x)
+
+        if self.layernorm:
+            x = self.norm2(fedforward + x)
 
         x = self.do(x)
 
@@ -187,7 +189,7 @@ class RegressionTransformer(nn.Module):
     """
 
     def __init__(self, emb, heads, depth, seq_length, num_classes,
-            max_pool=True, dropout=0.2, wide=True):
+            max_pool=True, dropout=0.2, wide=True, layernorm=True):
         """
         :param emb: Embedding dimension
         :param heads: nr. of attention heads
@@ -208,7 +210,9 @@ class RegressionTransformer(nn.Module):
         for i in range(depth):
             tblocks.append(
                 TransformerBlock(emb=emb, heads=heads, seq_length=seq_length,
-                    mask=False, dropout=dropout, wide=wide).to(device))
+                    mask=False, dropout=dropout, wide=wide,
+                    layernorm=layernorm,
+                    ).to(device))
 
         self.tblocks = nn.Sequential(*tblocks).to(device)
 

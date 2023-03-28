@@ -53,11 +53,15 @@ class QueryPlanDataset(data.Dataset):
 
             lat = self.featurizer.normalizeY(lat)
             curx = {}
+            curx["y"] = lat
 
-            curfeats = self.featurizer.get_pytorch_geometric_features(G,
-                    self.subplan_ests)
-
-            curfeats["y"] = lat
+            if self.featurizer.cfg["plan_net"]["arch"] == "onehot":
+                curfeats = self.featurizer.get_onehot_features(G)
+                ## y??
+            else:
+                curfeats = self.featurizer.get_pytorch_geometric_features(G,
+                        self.subplan_ests)
+                #curfeats["y"] = lat
 
             cur_logs = sys_logs[G.graph["tag"]][G.graph["instance"]]
 
@@ -87,7 +91,6 @@ class QueryPlanDataset(data.Dataset):
             info["latency"] = G.graph["latency"]
             info["qname"] = G.graph["qname"]
             curx["info"] = info
-
             data.append(curx)
 
         print("Skipped {} plans because sys logs missing".format(skip))

@@ -178,14 +178,14 @@ class LinuxNN(LatencyPredictor):
         if self.cfg["sys_net"]["save_weights"]:
             torch.save(self.net.sys_net.state_dict(),
                     self.cfg["sys_net"]["pretrained_fn"])
-            # print("saved sys net: ", self.cfg["sys_net"]["pretrained_fn"])
+            print("saved sys net: ", self.cfg["sys_net"]["pretrained_fn"])
 
             if hasattr(self.net, "fact_net"):
                 fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
                                                                      "/fact_")
                 torch.save(self.net.fact_net.state_dict(),
                         fname)
-                # print("saved fact net: ", fname)
+                print("saved fact net: ", fname)
 
 
     def log(self, losses, loss_type, samples_type):

@@ -319,10 +319,18 @@ def main():
     print("Using tags: ", cfg["tags"].split(","))
     df,sys_logs = load_dfs_linux(cfg["traindata_dir"], cfg["tags"])
     tmp = df[df["status"] != 0]
-    df = df[df["status"] == 0]
+    tmp = tmp[tmp["status"] != 124]
+    df = df[df["status"].isin([0, 124])]
     df = df[df["runtime"] > 1.0]
+    pgs = df[df["qname"].str.contains("pgrestore")]
+    df = df[~df["qname"].str.contains("pgrestore")]
+    ## avoid crashed runs
+    pgs = pgs[pgs["runtime"] > 150]
+    df = pd.concat([df, pgs])
     df["runtime"] = df.apply(lambda x: min(x["runtime"], 909.0) , axis=1)
-    print("Skipped {} failed jobs".format(len(tmp)))
+    print("Skipped {} failed jobs".format(len(set(tmp["jobhash"]))))
+    #print(tmp.groupby("status")["runtime"].count())
+    #pdb.set_trace()
 
     jobs = set(df["jobhash"])
 
@@ -375,7 +383,8 @@ Test cmds: {}, Test execs: {}".format(
         len(train_qnames), len(train_df), len(test_qnames),
         len(test_df)))
 
-    # if args.feat_normalization_data == "train":
+    # if args.feat_normalization_data == "train"
+
         # feat_plans = train_plans
     # elif args.feat_normalization_data == "all":
         # feat_plans = train_plans + test_plans + new_env_seen_plans + new_env_unseen_plans

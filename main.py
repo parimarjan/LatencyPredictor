@@ -316,7 +316,7 @@ def main():
 
     print("Using tags: ", cfg["tags"].split(","))
     df,sys_logs = load_dfs(cfg["traindata_dir"], cfg["tags"])
-    df = df[df["runtime"] > 2.0]
+    #df = df[df["runtime"] > 2.0]
 
     train_df, test_df = split_workload(df, cfg)
     train_plans = get_plans(train_df)

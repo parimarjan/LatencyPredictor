@@ -25,6 +25,7 @@ class FactorizedLatencyNet(torch.nn.Module):
         super(FactorizedLatencyNet, self).__init__()
 
         self.fact_arch = cfg["factorized_net"]["arch"]
+
         if cfg["plan_net"]["arch"] in ["gcn", "gat"]:
             self.gcn_net = SimpleGCN(num_plan_features,
                     num_global_features,
@@ -78,6 +79,14 @@ class FactorizedLatencyNet(torch.nn.Module):
                     1, cfg["factorized_net"]["num_layers"],
                     cfg["factorized_net"]["hl"])
             self.fact_net.to(device)
+        elif cfg["factorized_net"]["arch"] == "attention":
+        # def __init__(self, emb, heads, depth, seq_length, num_classes,
+                # max_pool=True, dropout=0.2, wide=True):
+            self.fact_net = RegressionTransformer(
+                    cfg["factorized_net"]["embedding_size"]*2,
+                    4, 1, 1, 1,
+                    ).to(device)
+            self.fact_net.to(device)
 
         elif cfg["factorized_net"]["arch"] == "dot":
             pass
@@ -91,6 +100,11 @@ class FactorizedLatencyNet(torch.nn.Module):
             ## old, w/ batch = 1
             # emb_out = torch.cat([xplan, xsys])
             emb_out = torch.cat([xsys,xplan], axis=-1)
+            out = self.fact_net(emb_out)
+        elif self.fact_arch == "attention":
+            emb_out = torch.cat([xsys,xplan], axis=-1)
+            # pdb.set_trace()
+            emb_out = emb_out.unsqueeze(dim=1)
             out = self.fact_net(emb_out)
 
         elif self.fact_arch == "dot":
@@ -154,6 +168,14 @@ class FactorizedLinuxNet(torch.nn.Module):
                     cfg["factorized_net"]["hl"])
             self.fact_net.to(device)
 
+        elif cfg["factorized_net"]["arch"] == "attention":
+            self.fact_net = RegressionTransformer(
+                    cfg["factorized_net"]["embedding_size"]*2,
+                    4, 1, 1, 1,
+                    layernorm=False,
+                    ).to(device)
+            self.fact_net.to(device)
+
         elif cfg["factorized_net"]["arch"] == "dot":
             pass
 
@@ -167,6 +189,12 @@ class FactorizedLinuxNet(torch.nn.Module):
             ## old, w/ batch = 1
             # emb_out = torch.cat([xplan, xsys])
             emb_out = torch.cat([xsys,xplan], axis=-1)
+            out = self.fact_net(emb_out)
+
+        elif self.fact_arch == "attention":
+            xplan = xplan.squeeze()
+            emb_out = torch.cat([xsys,xplan], axis=-1)
+            emb_out = emb_out.unsqueeze(dim=1)
             out = self.fact_net(emb_out)
 
         elif self.fact_arch == "dot":
