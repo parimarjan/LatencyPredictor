@@ -31,7 +31,7 @@ sys_net:
   arch: "transformer"
   pretrained : 0
   save_weights: 1
-  pretrained_fn: "models2/nostack_128_filter_actual.wt"
+  pretrained_fn: "models2/nostack_128_filter_actual_attn.wt"
 
   hl: 512
   num_layers: 8
@@ -40,7 +40,8 @@ sys_net:
   log_skip: 2
 
 factorized_net:
-  arch: "mlp" # dot product
+  #arch: "mlp" # dot product
+  arch: "attention" # dot product
   embedding_size: 128
 
   #arch: "dot"

@@ -584,6 +584,11 @@ def load_all_logs_linux(inp_tag, inp_dir, skip_timeouts=False):
     df["qname"] = df.apply(lambda x: x["fn"]+x["cmd"] ,
             axis=1)
 
+    if min(df["start_time"]) > max(curlogs["timestamp"]):
+        df["start_time"] = df.apply(lambda x: x["start_time"] / 1000000000.0,
+                axis=1)
+        print("updated nanoseconds to seconds!")
+
     return df, all_logs
 
 def to_variable(arr, use_cuda=True, requires_grad=False):

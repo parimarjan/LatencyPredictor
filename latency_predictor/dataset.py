@@ -151,6 +151,8 @@ class LinuxJobDataset(data.Dataset):
                                     )
             if len(prev_logs) == 0:
                 skip += 1
+                print(row["start_time"])
+                pdb.set_trace()
                 continue
 
             logf = self.featurizer.get_log_features(prev_logs,

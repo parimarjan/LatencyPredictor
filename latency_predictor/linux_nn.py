@@ -131,6 +131,9 @@ class LinuxNN(LatencyPredictor):
         dl = self.eval_loaders[samples_type]
 
         res,y = self._eval_loader(self.eval_ds[samples_type], dl)
+        # print(y)
+        # print(res)
+        # pdb.set_trace()
         losses = []
 
         for eval_fn in self.eval_fns:
@@ -329,9 +332,9 @@ class LinuxNN(LatencyPredictor):
                 # trueys.append(self.featurizer.unnormalizeY(y))
                 assert yhat.shape == y.shape
                 for yh in yhat:
-                    res.append(yh)
+                    res.append(yh.item())
                 for truey in y:
-                    trueys.append(truey)
+                    trueys.append(truey.item())
 
                 # for gi in range(data["graph"].num_graphs):
                     # trueys.append(self.featurizer.unnormalizeY(y[gi].item()))
