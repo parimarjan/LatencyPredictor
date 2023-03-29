@@ -40,10 +40,8 @@ sys_net:
   use_pretrained_norms: 1
   save_weights: 0
 
-  pretrained_fn: "models_linux/linux_128.wt"
-  #pretrained_fn: "models_linux/linux_4abc5_128.wt"
-
-  #pretrained_fn: "models_linux/linux_128_fixed.wt"
+  #pretrained_fn: "models_linux/linux_128.wt"
+  pretrained_fn: "models_linux/linux_128_all.wt"
 
   hl: 512
   num_layers: 8

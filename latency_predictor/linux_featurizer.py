@@ -43,7 +43,6 @@ class LinuxFeaturizer():
             self.cur_feature_idx = 0
             self.num_features = 0
             used_keys = set()
-
             # for each job, we will have a unique feature set, based on one
             # instance type
             qnames = list(set(df["qname"]))
@@ -95,7 +94,7 @@ class LinuxFeaturizer():
                 self.qname_features[qname] = feats
 
             self.num_features = len(featkeys)
-            print("Features based on: ", featkeys)
+            #print("Features based on: ", featkeys)
 
         elif self.cfg["plan_net"]["feat_type"] == "onehot":
             # onehot based on qname

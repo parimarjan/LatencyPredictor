@@ -12,8 +12,8 @@ num_bins : 5000
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/linux"
 
-#tags: "exp4a,exp4b,exp4c,exp5"
-tags: "exp5,exp5b,exp6"
+#tags: "exp5,exp5b,exp6,exp7"
+tags: "exp7"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
@@ -24,8 +24,8 @@ common:
 plan_net:
   arch: "mlp"
   ## onehot or perf from one instance
-  feat_type: "onehot"
-  #feat_type: "perf"
+  #feat_type: "onehot"
+  feat_type: "perf"
   hl: 128
   num_layers: 4
   subplan_ests: 0
@@ -36,8 +36,9 @@ sys_net:
   pretrained : 0
   save_weights: 1
   #pretrained_fn: "models2/noimdb_dot128.wt"
-  pretrained_fn: "models_linux/linux_128.wt"
-    #pretrained_fn: "models_linux/linux_4abc5_128.wt"
+  #pretrained_fn: "models_linux/linux_128.wt"
+  #pretrained_fn: "models_linux/linux_128_all.wt"
+  pretrained_fn: "models_linux/linux_128_exp7_perf.wt"
 
   hl: 512
   num_layers: 8

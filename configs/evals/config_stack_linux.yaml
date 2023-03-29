@@ -40,9 +40,10 @@ sys_net:
   use_pretrained_norms: 1
   save_weights: 0
 
-  pretrained_fn: "models_linux/linux_128.wt"
-  #pretrained_fn: "models_linux/linux_4abc5_128.wt"
+  #pretrained_fn: "models_linux/linux_128.wt"
+  pretrained_fn: "models_linux/linux_128_all.wt"
 
+  #pretrained_fn: "models_linux/linux_4abc5_128.wt"
   #pretrained_fn: "models_linux/linux_128_fixed.wt"
 
   hl: 512
@@ -52,8 +53,8 @@ sys_net:
   log_skip: 2
 
 factorized_net:
-  #arch: "mlp" # dot product
-  arch: "attention"
+  arch: "mlp" # dot product
+  #arch: "attention"
   embedding_size: 128
   #arch: "dot"
   #embedding_size: 32
