@@ -321,27 +321,38 @@ def main():
     tmp = df[df["status"] != 0]
     tmp = tmp[tmp["status"] != 124]
     df = df[df["status"].isin([0, 124])]
+    print(df.groupby("status")["status"].count())
     df = df[df["runtime"] > 1.0]
     pgs = df[df["qname"].str.contains("pgrestore")]
     df = df[~df["qname"].str.contains("pgrestore")]
     ## avoid crashed runs
     pgs = pgs[pgs["runtime"] > 150]
     df = pd.concat([df, pgs])
-    df["runtime"] = df.apply(lambda x: min(x["runtime"], 909.0) , axis=1)
+    #df["runtime"] = df.apply(lambda x: min(x["runtime"], 909.0) , axis=1)
     print("Skipped {} failed jobs".format(len(set(tmp["jobhash"]))))
-    #print(tmp.groupby("status")["runtime"].count())
-    #pdb.set_trace()
 
     jobs = set(df["jobhash"])
 
     flatdata = defaultdict(list)
+
     for jh in jobs:
         tmp = df[df["jobhash"] == jh]
         added = False
         added_stats = set()
+
         for idx,row in tmp.iterrows():
+            # if str(row["stat_name"]) == "nan":
+            if pd.isnull(row["stat_name"]):
+                for k in flatdata:
+                    if k in row.keys():
+                        flatdata[k].append(row[k])
+                    else:
+                        flatdata[k].append(None)
+                break
+
             if row["stat_name"] == "LLC-load-misses":
                 continue
+
             if row["stat_name"] not in added_stats:
                 flatdata[row["stat_name"]].append(row["value"])
                 flatdata[row["stat_name"]+"#"].append(row["value2"])

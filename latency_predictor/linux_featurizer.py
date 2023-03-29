@@ -43,7 +43,7 @@ class LinuxFeaturizer():
             self.cur_feature_idx = 0
             self.num_features = 0
             used_keys = set()
-            print("Features based on: ", used_keys)
+
             # for each job, we will have a unique feature set, based on one
             # instance type
             qnames = list(set(df["qname"]))
@@ -105,7 +105,7 @@ class LinuxFeaturizer():
             for qi,qname in enumerate(qnames):
                 self.qname_idxs[qname] = qi
             self.num_features = len(qnames)
-            print("Features based on: ", qnames)
+            print("Features based on {} commands".format(len(qnames)))
         else:
             assert False
 

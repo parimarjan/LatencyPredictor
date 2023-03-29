@@ -477,7 +477,8 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
 PERF_NAMES = ["value", "unit", "stat_name", "job_time", "util?",
 	"value2", "unit2"]
 
-def load_all_logs_linux(inp_tag, inp_dir, skip_timeouts=False):
+def load_all_logs_linux(inp_tag, inp_dir,
+        skip_timeouts=False):
     inp_dir = os.path.join(inp_dir, inp_tag)
     if not os.path.exists(inp_dir):
         print("no exists")
@@ -508,6 +509,7 @@ def load_all_logs_linux(inp_tag, inp_dir, skip_timeouts=False):
 				names=["jobhash", "cmd", "fn", "start_time","runtime", "status"],
                 error_bad_lines=False,
                 header=None)
+        cmdsdf["instance"] = iname
         curdfs = []
 
         for pfn in perfcsvs:
@@ -528,20 +530,19 @@ def load_all_logs_linux(inp_tag, inp_dir, skip_timeouts=False):
                 continue
 
             currt["jobhash"] = jobhash
-            currt["instance"] = iname
+            #currt["instance"] = iname
             curdfs.append(currt)
 
         if len(curdfs) == 0:
             continue
 
         currt = pd.concat(curdfs)
-        currt = currt[currt["jobhash"].isin(cmdsdf["jobhash"].values)]
+        #currt = currt[currt["jobhash"].isin(cmdsdf["jobhash"].values)]
         if len(currt) == 0:
             continue
 
-        #print(currt)
-        currt = currt.merge(ltdf, on="instance")
-        currt = currt.merge(cmdsdf, on="jobhash")
+        cmdsdf = cmdsdf.merge(ltdf, on="instance")
+        currt = currt.merge(cmdsdf, on="jobhash", how="right")
 
         if len(currt) == 0:
             print(iname, "rt == 0")
