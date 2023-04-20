@@ -81,15 +81,16 @@ class FactorizedLatencyNet(torch.nn.Module):
             self.fact_net.to(device)
 
         elif cfg["factorized_net"]["arch"] == "attention":
-            self.fact_net = RegressionTransformer(
-                    cfg["factorized_net"]["embedding_size"]*2,
-                    8, 1, 1, 1,
-                    layernorm=True,
-                    ).to(device)
-            # self.fact_net = AttentionFactNet(
+            # self.fact_net = RegressionTransformer(
                     # cfg["factorized_net"]["embedding_size"]*2,
-                    # 4, 1, 1, 1,
+                    # 8, 1, 1, 1,
+                    # layernorm=True,
                     # ).to(device)
+            self.fact_net = AttentionFactNet(
+                    cfg["factorized_net"]["embedding_size"]*2,
+                    4, cfg["factorized_net"]["num_layers"],
+                    1, 1,
+                    ).to(device)
             self.fact_net.to(device)
 
         elif cfg["factorized_net"]["arch"] == "dot":
@@ -220,6 +221,7 @@ class AttentionFactNet(torch.nn.Module):
         self.trans = RegressionTransformer(
                 emb,
                 heads, depth, seq_length, emb,
+                layernorm=layernorm,
                 ).to(device)
         self.final = SimpleRegression(emb,
             num_classes,

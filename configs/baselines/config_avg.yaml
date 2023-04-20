@@ -12,12 +12,15 @@ max_set_len : 1000
 num_bins : 100
 
 #gpu: 0
-traindata_dir : "LatencyCollectorResults/new"
+#traindata_dir : "LatencyCollectorResults/new"
+traindata_dir : "LatencyCollectorResults/background"
 ### different splits here
 #tags: "exp2_single,exp3_single,"
 #tags: "exp1_single,exp2_single,exp3_single,"
-tags: "exp8_single_stack"
+#tags: "exp8_single_stack"
+#tags: "exp2_stack"
 #tags: "exp10_single_zdbs"
+tags: "exp1"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"

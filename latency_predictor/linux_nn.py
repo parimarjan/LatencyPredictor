@@ -156,6 +156,10 @@ class LinuxNN(LatencyPredictor):
         epoch_losses = []
 
         for bidx, data in enumerate(self.traindl):
+            if data["sys_logs"].shape[0] != self.batch_size:
+                print("skipping because doesn't have batch size elements")
+                continue
+
             y = torch.tensor(data["y"], dtype=torch.float32).to(device)
             yhat = self.net(data)
 
@@ -321,6 +325,10 @@ class LinuxNN(LatencyPredictor):
 
         with torch.no_grad():
             for data in dl:
+                if data["sys_logs"].shape[0] != self.batch_size:
+                    print("skipping because doesn't have batch size elements")
+                    continue
+
                 yhat = self.net(data)
                 y = torch.tensor(data["y"], dtype=torch.float32).to(device)
 

@@ -149,7 +149,7 @@ class Featurizer():
                 fn = fn.replace(".wt", "_normalizers.pkl")
                 with open(fn, 'wb') as handle:
                     pickle.dump(sys_norms, handle)
-                print(fn)
+                print("normalizers saved at: ", fn)
 
         for k,v in sys_norms.items():
             print(k, " mean: ", round(v[0], 2), ", std: ", round(v[1], 2))

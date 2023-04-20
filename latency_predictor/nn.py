@@ -20,6 +20,7 @@ from latency_predictor.algs import *
 
 import pickle
 import wandb
+from collections import defaultdict
 
 class bcolors:
     HEADER = '\033[95m'
@@ -159,14 +160,22 @@ class NN(LatencyPredictor):
         start = time.time()
         dl = self.eval_loaders[samples_type]
 
-        res,y = self._eval_loader(self.eval_ds[samples_type], dl)
+        res,y,infos = self._eval_loader(self.eval_ds[samples_type], dl)
         losses = []
+
+        lterrs = defaultdict(list)
 
         for eval_fn in self.eval_fns:
             errors = eval_fn.eval(res, y)
 
             self.log(errors, eval_fn.__str__(), samples_type)
             losses.append(np.round(np.mean(errors), 2))
+
+            if "Q" in str(eval_fn) and self.epoch % 10 == 0:
+                for i,err in enumerate(errors):
+                    lterrs[infos[i]["lt_type"]].append(err)
+                for lt,vals in lterrs.items():
+                    print("{}: {}".format(lt,np.round(np.mean(vals), 2)))
 
         tot_time = round(time.time()-start, 2)
         stat_update = "{}:took {}, ".format(samples_type, tot_time)
@@ -261,7 +270,8 @@ class NN(LatencyPredictor):
                     )
             dl = torch.utils.data.DataLoader(ds,
                     batch_size=self.batch_size,
-                    shuffle=False, collate_fn=self.collate_fn)
+                    shuffle=False, collate_fn=self.collate_fn,
+                    drop_last=True)
 
             self.eval_ds[kind] = ds
             self.eval_loaders[kind] = dl
@@ -284,6 +294,7 @@ class NN(LatencyPredictor):
         self.traindl = torch.utils.data.DataLoader(self.ds,
                 batch_size=self.batch_size,
                 shuffle=True, collate_fn=self.collate_fn,
+                drop_last=True,
                 )
 
         self.eval_loaders = {}
@@ -292,7 +303,9 @@ class NN(LatencyPredictor):
         self.eval_ds["train"] = self.ds
         self.eval_loaders["train"] = torch.utils.data.DataLoader(self.ds,
                 batch_size=self.batch_size,
-                shuffle=False, collate_fn=self.collate_fn)
+                shuffle=False, collate_fn=self.collate_fn,
+                drop_last=True,
+                )
 
         self.setup_workload("test", test, sys_logs)
         self.setup_workload("new_env_seen", new_env_seen, sys_logs)
@@ -378,6 +391,7 @@ class NN(LatencyPredictor):
     def _eval_loader(self, ds, dl):
         res = []
         trueys = []
+        infos = []
 
         with torch.no_grad():
             for data in dl:
@@ -397,6 +411,7 @@ class NN(LatencyPredictor):
 
                 for gi in range(data["graph"].num_graphs):
                     trueys.append(self.featurizer.unnormalizeY(y[gi].item()))
+                    infos.append(data["info"][gi])
 
                 if self.subplan_ests:
                     assert False
@@ -408,7 +423,7 @@ class NN(LatencyPredictor):
 
         # self.net.train()
         # self.net.gcn_net.train()
-        return res,trueys
+        return res,trueys,infos
 
     def test(self, plans, sys_logs):
         ds = QueryPlanDataset(plans,
@@ -419,6 +434,6 @@ class NN(LatencyPredictor):
         dl = torch.utils.data.DataLoader(ds,
                 batch_size=self.batch_size,
                 shuffle=False, collate_fn=self.collate_fn)
-        ret,_ = self._eval_loader(ds, dl)
+        ret,_,_ = self._eval_loader(ds, dl)
 
         return ret

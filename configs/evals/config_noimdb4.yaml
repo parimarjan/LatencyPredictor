@@ -45,6 +45,7 @@ sys_net:
   #pretrained_fn: "models2/all_noimdb_128_fixed.wt"
   #pretrained_fn: "models2/noimdb_128_fixed.wt"
   #pretrained_fn: "models2/noimdb_128_filters_fixed.wt"
+
   pretrained_fn: "models2/noimdb_128_filters_actual_fixed.wt"
   #pretrained_fn: "models2/stacktpch_128.wt"
 

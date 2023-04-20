@@ -38,7 +38,14 @@ sys_net:
   #pretrained_fn: "models2/noimdb_dot128.wt"
   #pretrained_fn: "models_linux/linux_128.wt"
   #pretrained_fn: "models_linux/linux_128_all.wt"
-  pretrained_fn: "models_linux/linux_128_exp7_perf.wt"
+  #pretrained_fn: "models_linux/linux_128_perf.wt"
+  #pretrained_fn: "models_linux/linux_128_perf_att.wt"
+  #pretrained_fn: "models_linux/linux_128_exp7.wt"
+  #pretrained_fn: "models_linux/linux_128_exp7_perf.wt"
+  #pretrained_fn: "models_linux/linux_128_exp7_onehot_att.wt"
+
+  #pretrained_fn: "models_linux/linux_128_expall_perf_att.wt"
+  pretrained_fn: "models_linux/linux_128_exp7_perf_att.wt"
 
   hl: 512
   num_layers: 8
@@ -47,9 +54,8 @@ sys_net:
   log_skip: 2
 
 factorized_net:
-  arch: "mlp" # mlp,dot
-  #arch: "attention" # mlp,dot
-  #arch: "attention" # mlp,dot
+  #arch: "mlp" # mlp,dot
+  arch: "attention" # mlp,dot
   embedding_size: 128
   pretrained: 0
   hl: 256
