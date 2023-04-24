@@ -163,6 +163,12 @@ def read_flags():
     parser.add_argument("--factorized_net_embedding_size", "-es", type=int,
             required=False,
             default=None, help="")
+    parser.add_argument("--sys_net_pretrained_fn", type=str,
+            required=False,
+            default=None, help="")
+    parser.add_argument("--num_bins", type=int,
+            required=False,
+            default=None)
 
     parser.add_argument("--actual_feats", type=int, required=False,
             default=0)
