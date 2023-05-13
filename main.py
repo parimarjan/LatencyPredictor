@@ -160,15 +160,36 @@ def read_flags():
     parser.add_argument("--config", type=str, required=False,
             default="config.yaml", help="")
 
-    parser.add_argument("--factorized_net_embedding_size", "-es", type=int,
-            required=False,
-            default=None, help="")
-    parser.add_argument("--sys_net_pretrained_fn", type=str,
+    parser.add_argument("--max_set_len", type=int,
             required=False,
             default=None, help="")
     parser.add_argument("--num_bins", type=int,
             required=False,
-            default=None)
+            default=None, help="")
+    parser.add_argument("--plan_net_num_conv_layers", type=int,
+            required=False,
+            default=None, help="")
+
+    parser.add_argument("--factorized_net_embedding_size", "-es", type=int,
+            required=False,
+            default=None, help="")
+    parser.add_argument("--factorized_net_arch", type=str,
+            required=False,
+            default=None, help="")
+
+    parser.add_argument("--sys_net_pretrained_fn", type=str,
+            required=False,
+            default=None, help="")
+    parser.add_argument("--sys_net_arch", type=str,
+            required=False,
+            default=None, help="")
+
+    parser.add_argument("--sys_net_num_layers", type=int,
+            required=False,
+            default=None, help="")
+    parser.add_argument("--sys_net_num_heads", type=int,
+            required=False,
+            default=None, help="")
 
     parser.add_argument("--actual_feats", type=int, required=False,
             default=0)
@@ -222,11 +243,11 @@ def read_flags():
     parser.add_argument("--lr", type=float, required=False,
             default=0.00005)
     parser.add_argument("--weight_decay", type=float, required=False,
-            default=0.0)
+            default=1.0)
     parser.add_argument("--hl1", type=int, required=False,
             default=512)
     parser.add_argument("--num_conv_layers", type=int, required=False,
-            default=4)
+            default=8)
     parser.add_argument("--eval_epoch", type=int, required=False,
             default=2)
     parser.add_argument("--num_epochs", type=int, required=False,
@@ -293,6 +314,7 @@ def main():
         cfg = yaml.safe_load(f.read())
 
     wandbcfg = {}
+    wandbcfg.update(vars(args))
     cargs = vars(args)
     for k,v in cfg.items():
         if isinstance(v, dict):
@@ -311,8 +333,6 @@ def main():
     wandb_tags = ["2a"]
     if args.wandb_tags is not None:
         wandb_tags += args.wandb_tags.split(",")
-
-    wandbcfg.update(vars(args))
 
     if args.use_wandb:
         wandb.init("learned-latency", config=wandbcfg,

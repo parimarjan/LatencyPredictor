@@ -399,7 +399,15 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
         curdfs = []
 
         for rtfn in rtfns:
-            currt = pd.read_csv(rtfn)
+            try:
+                currt = pd.read_csv(rtfn,
+                        # skipfooter=1,
+                        # engine="python",
+                        error_bad_lines=False)
+            except Exception as e:
+                print(e)
+                continue
+
             currt["instance"] = iname
             curdfs.append(currt)
 
@@ -462,6 +470,7 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
     timeouts = timeouts[timeouts["runtime"] != -1.0]
     df = df[~df["exp_analyze"].isna()]
     df = df[df["exp_analyze"] != "nan"]
+    df = df[df["runtime"] >= 0.0]
 
     if not skip_timeouts and len(timeouts) != 0:
         print(inp_dir, inp_tag)
@@ -506,9 +515,11 @@ def load_all_logs_linux(inp_tag, inp_dir,
         cmds_fn = curdir + "/results/perf/allcommands.csv"
 
         cmdsdf = pd.read_csv(cmds_fn,
-				names=["jobhash", "cmd", "fn", "start_time","runtime", "status"],
+			names=["jobhash", "cmd", "fn", "start_time","runtime", "status"],
                 error_bad_lines=False,
-                header=None)
+                header=None,
+                skipfooter=1,
+                )
         cmdsdf["instance"] = iname
         curdfs = []
 
@@ -521,6 +532,7 @@ def load_all_logs_linux(inp_tag, inp_dir,
             try:
                 currt = pd.read_csv(pfn, skiprows=1,
                                     names = PERF_NAMES,
+                                    skipfooter=1,
                                     header=None)
                 #print(currt)
             except Exception as e:

@@ -230,7 +230,8 @@ class NN(LatencyPredictor):
 
         self.log(epoch_losses, "train_loss", "train")
 
-        if self.cfg["sys_net"]["save_weights"]:
+        if self.cfg["sys_net"]["save_weights"] and \
+                self.cfg["sys_net"]["arch"] == "transformer":
             torch.save(self.net.sys_net.state_dict(),
                     self.cfg["sys_net"]["pretrained_fn"])
             print("saved sys net: ", self.cfg["sys_net"]["pretrained_fn"])

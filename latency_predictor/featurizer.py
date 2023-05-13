@@ -134,7 +134,11 @@ class Featurizer():
             if self.cfg["sys_net"]["use_pretrained_norms"]:
                 fn = self.cfg["sys_net"]["pretrained_fn"]
                 fn = fn.replace("_fixed", "")
-                fn = fn.replace(".wt", "_normalizers.pkl")
+                if ".yaml" in fn:
+                    fn = fn.replace(".yaml", "_normalizers.pkl")
+                else:
+                    fn = fn.replace(".wt", "_normalizers.pkl")
+
                 print("Going to use pretrained log feature normalizers from: ",
                         fn)
                 with open(fn, 'rb') as handle:
@@ -146,7 +150,12 @@ class Featurizer():
             sys_norms = self._init_syslog_features(sys_logs)
             if self.cfg["sys_net"]["save_weights"]:
                 fn = self.cfg["sys_net"]["pretrained_fn"]
-                fn = fn.replace(".wt", "_normalizers.pkl")
+
+                if ".yaml" in fn:
+                    fn = fn.replace(".yaml", "_normalizers.pkl")
+                else:
+                    fn = fn.replace(".wt", "_normalizers.pkl")
+
                 with open(fn, 'wb') as handle:
                     pickle.dump(sys_norms, handle)
                 print("normalizers saved at: ", fn)
@@ -181,13 +190,17 @@ class Featurizer():
 
     def _init_syslog_features(self, sys_logs):
 
+        print("init syslog features!")
         sys_normalization = {}
         alllogs = []
+
         for instance in sys_logs:
             for _,curlogs in sys_logs[instance].items():
+                curlogs = curlogs.dropna()
                 alllogs.append(curlogs)
 
         df = pd.concat(alllogs)
+        df = df.dropna()
 
         keys = list(df.keys())
         newkeys = []
@@ -218,6 +231,9 @@ class Featurizer():
                 else:
                     sys_normalization[key] = (np.mean(df[key].values),
                             np.std(df[key].values))
+                    print(sys_normalization[key])
+                    if np.isnan(np.mean(df[key].values)):
+                        pdb.set_trace()
             else:
                 assert False
 

@@ -41,7 +41,8 @@ sys_net:
   log_skip: 2
 
 factorized_net:
-  arch: "mlp" # dot product
+  #arch: "mlp" # dot product
+  arch: "attention"
   embedding_size: 128
   #arch: "dot"
   #embedding_size: 32
