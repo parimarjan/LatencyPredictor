@@ -41,7 +41,8 @@ def percentile_help(q):
     return f
 
 def collate_fn_gcn(Z):
-    return torch_geometric.data.Batch.from_data_list(Z).to(device)
+    # return torch_geometric.data.Batch.from_data_list(Z).to(device)
+    return torch_geometric.data.Batch.from_data_list(Z)
 
 def collate_fn_gcn2(X):
     Z = [x["graph"] for x in X]
@@ -191,7 +192,6 @@ class NN(LatencyPredictor):
         epoch_losses = []
 
         for bidx, data in enumerate(self.traindl):
-
             y = data["y"].to(device)
             yhat = self.net(data)
 

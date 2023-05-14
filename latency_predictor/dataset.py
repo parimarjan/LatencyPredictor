@@ -61,6 +61,9 @@ class QueryPlanDataset(data.Dataset):
             else:
                 curfeats = self.featurizer.get_pytorch_geometric_features(G,
                         self.subplan_ests)
+                curfeats = curfeats.to(device,
+                        non_blocking=True)
+
                 #curfeats["y"] = lat
 
             cur_logs = sys_logs[G.graph["tag"]][G.graph["instance"]]
@@ -77,6 +80,9 @@ class QueryPlanDataset(data.Dataset):
 
             logf = self.featurizer.get_log_features(prev_logs,
                                                     self.log_avg)
+
+            logf = logf.to(device,
+                    non_blocking=True)
 
             ## syslogs
             # curfeats["sys_logs"] = logf
