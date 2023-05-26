@@ -1,0 +1,64 @@
+%YAML 1.2
+---
+split_kind : "query" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : -1
+seed : 1
+ignore_node_feats: "Alias,"
+
+# 50,500,5000
+max_set_len : 50000
+# 50,500,5000
+num_bins : 5000
+
+traindata_dir : "LatencyCollectorResults/new"
+#traindata_dir : "LatencyCollectorResults/background,LatencyCollectorResults/new"
+
+tags: "exp1_single,exp2_single,exp3_single,exp1,exp2_stack,exp3_stack_multi1,exp4_ceb2,exp5_tpch_stats_ergast,exp6_multi4,exp7_multi4,exp9_stack1,exp9_stack2,exp10_multi4_1p,exp11_multi4_stack,exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs,t7xlarge-gp3-c,t7xlarge-gp3-d,t7xlarge-gp3-e-stressng,t7xlarge-gp3-f-stressng"
+#tags: "exp1"
+#tags: "exp2_stack,exp4_ceb2"
+
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : "exp2_single"
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  # 4, 8, 16
+  num_conv_layers: 8
+  # 0, 1
+  subplan_ests: 0
+  # 0, 1
+  dropout : 1
+sys_net:
+  arch: "transformer"
+  pretrained : 0
+  save_weights: 1
+  pretrained_fn: "models_hyp/all_attention.wt"
+
+  hl: 512
+  ## normal
+  num_layers: 8
+  num_heads: 16
+
+  ## normal
+  #num_layers: 16
+  #num_heads: 32
+
+  log_prev_secs: 600
+  log_skip: 2
+
+factorized_net:
+  #arch: "mlp" # dot product
+  arch: "attention"
+  embedding_size: 128
+  pretrained: 1
+  hl: 256
+  num_layers: 2
+...

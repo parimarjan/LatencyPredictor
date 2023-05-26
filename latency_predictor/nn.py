@@ -3,6 +3,7 @@ from torch import nn
 from torch.nn.utils.clip_grad import clip_grad_norm_
 import torch.nn.functional as F
 import torch_geometric
+from torch.optim.lr_scheduler import *
 
 import numpy as np
 import random
@@ -46,9 +47,12 @@ def collate_fn_gcn(Z):
 
 def collate_fn_gcn2(X):
     Z = [x["graph"] for x in X]
-    S = []
-    infos = []
+    # S = [x["sys_logs"] for x in X]
+    # infos = [x["info"] for x in X]
+    # Ys = [x["y"] for x in X]
     Ys = []
+    infos = []
+    S = []
 
     for curx in X:
         x = curx["sys_logs"]
@@ -57,14 +61,27 @@ def collate_fn_gcn2(X):
         if len(x.shape) == 1:
             S.append(x)
         else:
-            rows = x.shape[0]
-            to_pad = MAX_LOG_LEN-rows
-            S.append(torch.nn.functional.pad(x,(0,0,to_pad,0),
-                    mode="constant",value=0))
+            if x.shape[0] >= 95:
+                # temporary
+                rows = x.shape[1]
+                to_pad = MAX_LOG_LEN-rows
+                S.append(torch.nn.functional.pad(x,(0,0,0,to_pad),
+                        mode="constant",value=0))
+            else:
+                rows = x.shape[0]
+                to_pad = MAX_LOG_LEN-rows
+                if to_pad < 0:
+                    S.append(x)
+                else:
+                    S.append(torch.nn.functional.pad(x,(0,0,to_pad,0),
+                            mode="constant",value=0))
 
     ret = {}
     ret["graph"] = torch_geometric.data.Batch.from_data_list(Z).to(device)
     ret["sys_logs"] = torch.stack(S)
+
+    # pdb.set_trace()
+
     ret["info"] = infos
     ret["y"] = torch.tensor(Ys, dtype=torch.float)
 
@@ -85,11 +102,12 @@ class NN(LatencyPredictor):
     def __init__(self, *args, cfg={}, **kwargs):
         self.exp_version = None
         self.kwargs = kwargs
-        for k, val in kwargs.items():
-            self.__setattr__(k, val)
 
         self.cfg = cfg
         for k, val in cfg["common"].items():
+            self.__setattr__(k, val)
+
+        for k, val in kwargs.items():
             self.__setattr__(k, val)
 
         # self.collate_fn = collate_fn_gcn
@@ -144,13 +162,24 @@ class NN(LatencyPredictor):
                     self.cfg["sys_net"]["num_layers"],
                     self.cfg["sys_net"]["num_heads"],
                     int(self.cfg["sys_net"]["log_prev_secs"] / 10),
-                    )
+                    self.layernorm)
         elif self.arch == "factorized":
-            self.net = FactorizedLatencyNet(self.cfg,
-                    self.featurizer.num_features,
-                    self.featurizer.num_global_features,
-                    self.featurizer.num_syslog_features,
-                    )
+            if self.featurizer.sys_seq_kind == "rows":
+                self.net = FactorizedLatencyNet(self.cfg,
+                        self.featurizer.num_features,
+                        self.featurizer.num_global_features,
+                        self.featurizer.num_syslog_features,
+                        MAX_LOG_LEN,
+                        self.layernorm,
+                        )
+            elif "col" in self.featurizer.sys_seq_kind:
+                self.net = FactorizedLatencyNet(self.cfg,
+                        self.featurizer.num_features,
+                        self.featurizer.num_global_features,
+                        MAX_LOG_LEN,
+                        self.featurizer.num_syslog_features,
+                        self.layernorm,
+                        )
         else:
             assert False
 
@@ -215,10 +244,11 @@ class NN(LatencyPredictor):
                 assert y.shape == yhat.shape
                 loss = self.loss_fn(yhat, y)
 
-            epoch_losses.append(loss.item())
 
             self.optimizer.zero_grad()
             loss.backward()
+
+            epoch_losses.append(loss.detach().item())
 
             if self.clip_gradient is not None:
                 clip_grad_norm_(self.net.parameters(), self.clip_gradient)
@@ -271,8 +301,11 @@ class NN(LatencyPredictor):
                     )
             dl = torch.utils.data.DataLoader(ds,
                     batch_size=self.batch_size,
-                    shuffle=False, collate_fn=self.collate_fn,
-                    drop_last=True)
+                    shuffle=False,
+                    collate_fn=self.collate_fn,
+                    drop_last=True,
+                    # num_workers=4,
+                    )
 
             self.eval_ds[kind] = ds
             self.eval_loaders[kind] = dl
@@ -294,8 +327,10 @@ class NN(LatencyPredictor):
 
         self.traindl = torch.utils.data.DataLoader(self.ds,
                 batch_size=self.batch_size,
-                shuffle=True, collate_fn=self.collate_fn,
+                shuffle=True,
+                collate_fn=self.collate_fn,
                 drop_last=True,
+                # num_workers = 4,
                 )
 
         self.eval_loaders = {}
@@ -358,15 +393,35 @@ class NN(LatencyPredictor):
         self.optimizer = torch.optim.AdamW(self.net.parameters(), lr=self.lr,
                 weight_decay=self.weight_decay)
 
+        if self.lrscheduler:
+            self.optimizer = torch.optim.AdamW(self.net.parameters(),
+                    lr=self.lr,
+                    weight_decay=self.weight_decay)
+            train_scheduler = CosineAnnealingLR(self.optimizer, self.num_epochs)
+            number_warmup_epochs = self.lrscheduler
+
+            def warmup(current_step):
+                print(current_step / float(number_warmup_epochs))
+                return current_step / float(number_warmup_epochs)
+
+            warmup_scheduler = LambdaLR(self.optimizer, lr_lambda=warmup)
+            self.scheduler = SequentialLR(self.optimizer,
+                    [warmup_scheduler, train_scheduler], [number_warmup_epochs])
+
         # self._save_embeddings(["train", "test"])
         # pdb.set_trace()
 
         for self.epoch in range(self.num_epochs):
-            if self.epoch % self.eval_epoch == 0:
+            if self.epoch % self.eval_epoch == 0 \
+                    and self.epoch != 0:
                 for st in self.eval_loaders.keys():
                     self.periodic_eval(st)
 
             self._train_one_epoch()
+
+            if self.lrscheduler:
+                self.scheduler.step()
+                print(f"Epoch: {self.epoch+1}, Learning rate: {self.scheduler.get_last_lr()[0]}")
 
     def _save_embeddings(self, sample_types):
 

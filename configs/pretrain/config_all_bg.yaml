@@ -1,0 +1,72 @@
+%YAML 1.2
+---
+split_kind : "query" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : -1
+seed : 1
+ignore_node_feats: "Alias,"
+
+max_set_len : 50000
+num_bins : 5000
+#num_bins : 100
+
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/background,LatencyCollectorResults/multiple"
+
+tags: "exp1,exp2_stack,exp3_stack_multi1,exp4_ceb2,exp5_tpch_stats_ergast,t7xlarge-gp3-c,t7xlarge-gp3-d,t7xlarge-gp3-e-stressng,t7xlarge-gp3-f-stressng,exp11_multi4_stack,exp7_multi4,exp10_multi4_1p,exp6_multi4,exp6_multi4b,exp9_stack1,exp9_stack2"
+
+#tags: "exp1"
+#tags: "exp2_stack,exp4_ceb2"
+
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : "exp2_single"
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 4
+  subplan_ests: 0
+  dropout : 0
+sys_net:
+  # mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  save_weights: 1
+  #pretrained_fn: "models2/all_attention.wt"
+  pretrained_fn: "models_all/all_attention_bg.wt"
+
+  hl: 512
+  ## normal
+  #num_layers: 8
+  #num_heads: 16
+
+  ## normal
+  num_layers: 16
+  num_heads: 32
+
+  #small
+  #num_layers: 4
+  #num_heads: 4
+
+  ## larger
+  #num_layers: 16
+  #num_heads: 16
+
+  log_prev_secs: 600
+  log_skip: 2
+
+factorized_net:
+  #arch: "mlp" # dot product
+  arch: "attention"
+  embedding_size: 128
+  pretrained: 1
+  hl: 256
+  num_layers: 2
+  #num_layers: 1 # 4
+...

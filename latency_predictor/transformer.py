@@ -61,6 +61,9 @@ class SelfAttentionWide(nn.Module):
 
         dot = F.softmax(dot, dim=2)
         # - dot now has row-wise self-attention probabilities
+        # print(dot)
+        # print(dot.shape)
+        # pdb.set_trace()
 
         # apply the self attention to the values
         out = torch.bmm(dot, values).view(b, h, t, e)
@@ -147,11 +150,12 @@ class SelfAttentionNarrow(nn.Module):
 class TransformerBlock(nn.Module):
 
     def __init__(self, emb, heads, mask, seq_length, ff_hidden_mult=4,
-            dropout=0.2, wide=True, layernorm=True):
+            dropout=0.2, wide=True, layernorm="post"):
         super().__init__()
 
         self.attention = SelfAttentionWide(emb, heads=heads, mask=mask) if wide \
                     else SelfAttentionNarrow(emb, heads=heads, mask=mask)
+
         self.mask = mask
         self.layernorm = layernorm
 
@@ -167,16 +171,21 @@ class TransformerBlock(nn.Module):
         self.do = nn.Dropout(dropout)
 
     def forward(self, x):
-        attended = self.attention(x)
 
-        if self.layernorm:
+        if self.layernorm == "pre":
+            x = self.norm1(x)
+            attended = self.attention(x) + x
+        else:
+            attended = self.attention(x)
             x = self.norm1(attended + x)
 
         x = self.do(x)
 
-        fedforward = self.ff(x)
-
-        if self.layernorm:
+        if self.layernorm == "pre":
+            x = self.norm2(x)
+            fedforward = self.ff(x) + x
+        else:
+            fedforward = self.ff(x)
             x = self.norm2(fedforward + x)
 
         x = self.do(x)
@@ -189,7 +198,7 @@ class RegressionTransformer(nn.Module):
     """
 
     def __init__(self, emb, heads, depth, seq_length, num_classes,
-            max_pool=True, dropout=0.2, wide=True, layernorm=True):
+            max_pool=True, dropout=0.2, wide=True, layernorm="post"):
         """
         :param emb: Embedding dimension
         :param heads: nr. of attention heads

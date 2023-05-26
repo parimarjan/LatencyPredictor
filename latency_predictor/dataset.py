@@ -30,9 +30,9 @@ class QueryPlanDataset(data.Dataset):
         self.featurizer = featurizer
 
         print("node feature length: {}, global_features: {}".format(
-            self.featurizer.num_features, self.featurizer.num_global_features))
+            featurizer.num_features, featurizer.num_global_features))
 
-        self.data = self._get_features(plans, syslogs)
+        self.data = self._get_features(plans, syslogs, featurizer)
 
     def __len__(self):
         return len(self.data)
@@ -42,7 +42,7 @@ class QueryPlanDataset(data.Dataset):
         '''
         return self.data[index]
 
-    def _get_features(self, plans, sys_logs):
+    def _get_features(self, plans, sys_logs, featurizer):
         data = []
         skip = 0
         for G in plans:
@@ -51,18 +51,18 @@ class QueryPlanDataset(data.Dataset):
 
             lat = G.graph["latency"]
 
-            lat = self.featurizer.normalizeY(lat)
+            lat = featurizer.normalizeY(lat)
             curx = {}
             curx["y"] = lat
 
-            if self.featurizer.cfg["plan_net"]["arch"] == "onehot":
-                curfeats = self.featurizer.get_onehot_features(G)
+            if featurizer.cfg["plan_net"]["arch"] == "onehot":
+                curfeats = featurizer.get_onehot_features(G)
                 ## y??
             else:
-                curfeats = self.featurizer.get_pytorch_geometric_features(G,
+                curfeats = featurizer.get_pytorch_geometric_features(G,
                         self.subplan_ests)
-                curfeats = curfeats.to(device,
-                        non_blocking=True)
+                # curfeats = curfeats.to(device,
+                        # non_blocking=True)
 
                 #curfeats["y"] = lat
 
@@ -78,11 +78,31 @@ class QueryPlanDataset(data.Dataset):
                 skip += 1
                 continue
 
-            logf = self.featurizer.get_log_features(prev_logs,
-                                                    self.log_avg)
+            logf = featurizer.get_log_features(prev_logs,
+                                            self.log_avg)
+            if logf.shape[0] < MAX_LOG_LEN:
+                continue
 
-            logf = logf.to(device,
-                    non_blocking=True)
+            # if logf.shape[0] >= 95:
+                # # temporary
+                # rows = logf.shape[1]
+                # to_pad = MAX_LOG_LEN-rows
+                # S.append(torch.nn.functional.pad(logf,(0,0,0,to_pad),
+                        # mode="constant",value=0))
+            # else:
+                # rows = x.shape[0]
+                # to_pad = MAX_LOG_LEN-rows
+                # if to_pad < 0:
+                    # S.append(x)
+                # else:
+                    # S.append(torch.nn.functional.pad(x,(0,0,to_pad,0),
+                            # mode="constant",value=0))
+
+            if "col" in featurizer.sys_seq_kind:
+                logf = logf.T
+
+            # logf = logf.to(device,
+                    # non_blocking=True)
 
             ## syslogs
             # curfeats["sys_logs"] = logf
@@ -101,7 +121,6 @@ class QueryPlanDataset(data.Dataset):
 
         print("Skipped {} plans because sys logs missing".format(skip))
         return data
-
 
 class LinuxJobDataset(data.Dataset):
     def __init__(self, df,
@@ -155,6 +174,7 @@ class LinuxJobDataset(data.Dataset):
                                     self.log_skip,
                                     MAX_LOG_LEN,
                                     )
+
             if len(prev_logs) == 0:
                 skip += 1
                 print(row["start_time"])
@@ -163,6 +183,8 @@ class LinuxJobDataset(data.Dataset):
 
             logf = self.featurizer.get_log_features(prev_logs,
                                                     self.log_avg)
+
+
             if logf.shape[0] != MAX_LOG_LEN:
                 logf = F.pad(input=logf, pad=(0, 0, 0, MAX_LOG_LEN-logf.shape[0]),
                         mode='constant',

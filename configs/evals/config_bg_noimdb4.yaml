@@ -1,0 +1,88 @@
+%YAML 1.2
+---
+#split_kind : "query" # instances,query,...;
+split_kind : "instances" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : 1
+seed : 1
+#max_set_len : 5000
+#num_bins : 250
+
+max_set_len : 1000
+#num_bins : 100
+num_bins : 50
+
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/background"
+tags: "exp1"
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : "exp1_single,exp2_single"
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  #arch: "gat"
+  hl: 512
+  num_conv_layers: 4
+  subplan_ests: 0
+  dropout : 0.2
+sys_net:
+  arch: "transformer"
+  pretrained : 1
+  use_pretrained_norms: 1
+  save_weights: 0
+
+  #pretrained_fn: "models2/noimdb_128_filters_actual_fixed.wt"
+  #pretrained_fn: "models2/noimdb2_attention.wt"
+  #pretrained_fn: "models2/bg_imdball_attention.wt"
+  #pretrained_fn: "models2/bg_stack_attention.wt"
+  #pretrained_fn: "models2/bg_exp2_exp5.wt"
+  #pretrained_fn: "models2/all_attention.wt"
+  #pretrained_fn: "models2/all_attention_bins50.wt"
+
+  #pretrained_fn: "models2/single_noimdbwk_bg_stack_attention.wt"
+  #pretrained_fn: "models2/bg_stack_ceb2_attention.wt"
+
+  ## debug ones
+  #pretrained_fn: "models2/bg_stack_attention_fact4.wt"
+  #pretrained_fn: "models2/bg_stack_attention_small.wt"
+  #pretrained_fn: "models2/bg_stack_attention_larger.wt"
+
+  #pretrained_fn: "models2/bg_debug.wt"
+  pretrained_fn: "models2/bg_multi4.wt"
+
+  ## includes imdb (ceb-2 and joblight)
+  #pretrained_fn: "models/all_noimdb_128_col1_fixed.wt"
+  hl: 512
+
+  ## normal
+  num_layers: 8
+  num_heads: 16
+
+  #small
+  #num_layers: 4
+  #num_heads: 4
+
+  ## larger
+  #num_layers: 16
+  #num_heads: 16
+
+  log_prev_secs: 600
+  log_skip: 2
+
+factorized_net:
+  #arch: "mlp" # dot product
+  arch: "attention" # dot product
+  embedding_size: 128
+  #arch: "dot"
+  #embedding_size: 32
+  pretrained: 1
+  hl: 256
+  num_layers: 2
+  #num_layers: 1
+...

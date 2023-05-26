@@ -9,7 +9,7 @@ max_set_len : 1000
 num_bins : 100
 
 #gpu: 0
-traindata_dir : "LatencyCollectorResults/background"
+traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
 ###tags: "exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
 
 ### different splits here
@@ -17,7 +17,9 @@ traindata_dir : "LatencyCollectorResults/background"
 #tags: "exp2_stack"
 #tags: "exp10_single_zdbs"
 #tags: "exp1"
-tags: "exp1"
+#tags: "exp1"
+tags: "exp8_single_stack"
+#tags: "exp2_stack"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
@@ -44,13 +46,14 @@ sys_net:
   pretrained_fn: null
 
   hl: 512
-  num_layers: 8
-  num_heads: 16
+  num_layers: 2
+  num_heads: 64
   log_prev_secs: 600
   log_skip: 2
 
 factorized_net:
-  arch: "mlp" # dot product
+  #arch: "mlp" # dot product
+  arch: "dot" # dot product
   embedding_size: 128
   #arch: "dot"
   #embedding_size: 32

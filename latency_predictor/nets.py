@@ -6,7 +6,7 @@ import pdb
 
 from latency_predictor.transformer import RegressionTransformer
 from tst import Transformer
-from latency_predictor.dataset import MAX_LOG_LEN
+# from latency_predictor.dataset import MAX_LOG_LEN
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -19,6 +19,8 @@ class FactorizedLatencyNet(torch.nn.Module):
             num_plan_features,
             num_global_features,
             num_sys_features,
+            sys_seq_len,
+            layernorm,
             subplan_ests=False,
             out_feats=1,
             final_act="none"):
@@ -59,7 +61,8 @@ class FactorizedLatencyNet(torch.nn.Module):
                     cfg["sys_net"]["num_layers"],
                     cfg["sys_net"]["hl"],
                     cfg["sys_net"]["num_heads"],
-                    MAX_LOG_LEN,
+                    sys_seq_len,
+                    layernorm,
                     )
             self.sys_net.to(device)
 
@@ -93,6 +96,15 @@ class FactorizedLatencyNet(torch.nn.Module):
                     ).to(device)
             self.fact_net.to(device)
 
+        elif cfg["factorized_net"]["arch"] == "attention2":
+            self.fact_net = AttentionFactNet(
+                    1,
+                    4, 1,
+                    cfg["factorized_net"]["embedding_size"]*2,
+                    1,
+                    ).to(device)
+            self.fact_net.to(device)
+
         elif cfg["factorized_net"]["arch"] == "dot":
             pass
 
@@ -108,8 +120,11 @@ class FactorizedLatencyNet(torch.nn.Module):
             out = self.fact_net(emb_out)
         elif self.fact_arch == "attention":
             emb_out = torch.cat([xsys,xplan], axis=-1)
-            # pdb.set_trace()
             emb_out = emb_out.unsqueeze(dim=1)
+            out = self.fact_net(emb_out)
+
+        elif self.fact_arch == "attention2":
+            emb_out = emb_out.unsqueeze(dim=2)
             out = self.fact_net(emb_out)
 
         elif self.fact_arch == "dot":
@@ -124,6 +139,7 @@ class FactorizedLinuxNet(torch.nn.Module):
             num_plan_features,
             num_global_features,
             num_sys_features,
+            layernorm,
             subplan_ests=False,
             out_feats=1,
             final_act="none"):
@@ -153,6 +169,7 @@ class FactorizedLinuxNet(torch.nn.Module):
                     cfg["sys_net"]["hl"],
                     cfg["sys_net"]["num_heads"],
                     MAX_LOG_LEN,
+                    layernorm,
                     )
             self.sys_net.to(device)
 
@@ -185,6 +202,13 @@ class FactorizedLinuxNet(torch.nn.Module):
                     cfg["factorized_net"]["embedding_size"]*2,
                     4, 1, 1, 1,
                     ).to(device)
+            # self.fact_net = AttentionFactNet(
+                    # 1,
+                    # 4, 1,
+                    # cfg["factorized_net"]["embedding_size"]*2,
+                    # 1,
+                    # ).to(device)
+
             self.fact_net.to(device)
 
         elif cfg["factorized_net"]["arch"] == "dot":
@@ -245,11 +269,13 @@ class TransformerLogs(torch.nn.Module):
             hidden_layer_size,
             num_heads,
             seq_len,
+            layernorm,
             ):
         super(TransformerLogs, self).__init__()
         # TODO: calculate this
         self.net = RegressionTransformer(input_width,
                 num_heads, num_hidden_layers, seq_len, n_output,
+                layernorm,
                 ).to(device)
 
     def forward(self, data):

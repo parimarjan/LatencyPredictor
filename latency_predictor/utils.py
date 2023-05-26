@@ -420,7 +420,7 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
         currt = currt.merge(ltdf, on="instance")
 
         if len(currt) == 0:
-            print(iname, "rt == 0")
+            # print(iname, "rt == 0")
             continue
 
         curlogs = load_sys_logs(curdir)

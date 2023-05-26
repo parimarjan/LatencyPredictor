@@ -1,0 +1,72 @@
+%YAML 1.2
+---
+split_kind : "query" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : -1
+seed : 1
+ignore_node_feats: "Alias,"
+
+max_set_len : 100000
+#num_bins : 5000
+#num_bins : 100
+num_bins : 100
+
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/background,LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
+#traindata_dir : "LatencyCollectorResults/background,LatencyCollectorResults/new"
+
+tags: "exp1_single,exp2_single,exp3_single,exp1,exp4_ceb2,exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs,t7xlarge-gp3-c,t7xlarge-gp3-d,t7xlarge-gp3-e-stressng,t7xlarge-gp3-f-stressng,exp5_tpch_stats_ergast"
+
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : "exp2_single"
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 4
+  subplan_ests: 0
+  dropout : 0
+sys_net:
+  # mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  save_weights: 1
+  #pretrained_fn: "models2/all_attention_nostack.wt"
+  #pretrained_fn: "models_all/all_attention_nostack.wt"
+  pretrained_fn: "models_all/all_attention_nostack_l8.wt"
+
+  hl: 512
+  ## normal
+  num_layers: 8
+  num_heads: 16
+
+  ## normal
+  #num_layers: 16
+  #num_heads: 32
+
+  #small
+  #num_layers: 4
+  #num_heads: 4
+
+  ## larger
+  #num_layers: 16
+  #num_heads: 16
+
+  log_prev_secs: 600
+  log_skip: 2
+
+factorized_net:
+  #arch: "mlp" # dot product
+  arch: "attention"
+  embedding_size: 128
+  pretrained: 1
+  hl: 256
+  num_layers: 2
+  #num_layers: 1 # 4
+...

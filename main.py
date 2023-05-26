@@ -76,6 +76,8 @@ def get_alg(alg, cfg):
     elif alg == "nn":
         return NN(
                 cfg = cfg,
+                lrscheduler=args.lrscheduler,
+                layernorm=args.layernorm,
                 arch = args.arch, hl1 = args.hl1,
                 subplan_ests = args.subplan_ests,
                 eval_fn_names = args.eval_fns,
@@ -83,7 +85,7 @@ def get_alg(alg, cfg):
                 final_act = args.final_act,
                 use_wandb = args.use_wandb,
                 log_transform_y = args.log_transform_y,
-                # batch_size = args.batch_size,
+                batch_size = args.batch_size,
                 global_feats = args.global_feats,
                 # tags = args.tags,
                 # seed = args.seed,
@@ -157,12 +159,18 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
 def read_flags():
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("--batch_size", type=int,
+            required=False,
+            default=16, help="")
     parser.add_argument("--config", type=str, required=False,
             default="config.yaml", help="")
+    parser.add_argument("--sys_seq_kind", type=str, required=False,
+            default="rows", help="")
 
     parser.add_argument("--max_set_len", type=int,
             required=False,
             default=None, help="")
+
     parser.add_argument("--num_bins", type=int,
             required=False,
             default=None, help="")
@@ -191,6 +199,10 @@ def read_flags():
             required=False,
             default=None, help="")
 
+    parser.add_argument("--layernorm", type=str, required=False,
+            default="post")
+    parser.add_argument("--lrscheduler", type=int, required=False,
+            default=0)
     parser.add_argument("--actual_feats", type=int, required=False,
             default=0)
     parser.add_argument("--table_feat", type=int, required=False,
@@ -316,6 +328,7 @@ def main():
     wandbcfg = {}
     wandbcfg.update(vars(args))
     cargs = vars(args)
+
     for k,v in cfg.items():
         if isinstance(v, dict):
             for k2,v2 in v.items():
@@ -341,6 +354,7 @@ def main():
     print(yaml.dump(cfg, default_flow_style=False))
 
     print("Using tags: ", cfg["tags"].split(","))
+
     df,sys_logs = load_dfs(cfg["traindata_dir"], cfg["tags"])
     #df = df[df["runtime"] > 2.0]
 
@@ -381,6 +395,7 @@ New Env Unseen Plans: {}".format(
     featurizer = Featurizer(train_plans,
                             sys_logs,
                             cfg,
+                            sys_seq_kind=args.sys_seq_kind,
                             actual_feats = args.actual_feats,
                             feat_undirected_edges = args.feat_undirected_edges,
                             feat_noncumulative_costs = args.feat_noncumulative_costs,
@@ -430,7 +445,7 @@ New Env Unseen Plans: {}".format(
         eval_alg(alg, eval_fns, new_env_unseen_plans, sys_logs, "new_env_unseen")
 
 if __name__ == "__main__":
-    # mp.set_start_method('spawn')
+    mp.set_start_method('spawn')
     cfg = {}
     args = read_flags()
     main()
