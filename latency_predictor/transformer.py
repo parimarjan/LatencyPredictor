@@ -29,6 +29,39 @@ class SelfAttentionWide(nn.Module):
 
         self.unifyheads = nn.Linear(heads * emb, emb)
 
+    def get_attention_values(self, x):
+        b, t, e = x.size()
+        h = self.heads
+        # assert e == self.emb, f'Input embedding dim ({e}) should match layer embedding dim ({self.emb})'
+
+        keys    = self.tokeys(x)   .view(b, t, h, e)
+        queries = self.toqueries(x).view(b, t, h, e)
+        values  = self.tovalues(x) .view(b, t, h, e)
+
+        # compute scaled dot-product self-attention
+
+        # - fold heads into the batch dimension
+        keys = keys.transpose(1, 2).contiguous().view(b * h, t, e)
+        queries = queries.transpose(1, 2).contiguous().view(b * h, t, e)
+        values = values.transpose(1, 2).contiguous().view(b * h, t, e)
+
+        queries = queries / (e ** (1/4))
+        keys    = keys / (e ** (1/4))
+        # - Instead of dividing the dot products by sqrt(e), we scale the keys and values.
+        #   This should be more memory efficient
+
+        # - get dot product of queries and keys, and scale
+        dot = torch.bmm(queries, keys.transpose(1, 2))
+
+        assert dot.size() == (b*h, t, t)
+
+        if self.mask: # mask out the upper half of the dot matrix, excluding the diagonal
+            mask_(dot, maskval=float('-inf'), mask_diagonal=False)
+
+        dot = F.softmax(dot, dim=2)
+
+        return dot
+
     def forward(self, x):
 
         b, t, e = x.size()
@@ -170,25 +203,36 @@ class TransformerBlock(nn.Module):
 
         self.do = nn.Dropout(dropout)
 
-    def forward(self, x):
-
+    def get_attention_values(self, x):
         if self.layernorm == "pre":
-            x = self.norm1(x)
-            attended = self.attention(x) + x
+            nx = self.norm1(x)
+            return self.attention.get_attention_values(nx)
         else:
+            return self.attention.get_attention_values(x)
+
+    def forward(self, x):
+        if self.layernorm == "pre":
+            nx = self.norm1(x)
+            x = self.attention(nx) + x
+            nx2 = self.norm2(x)
+            x = self.ff(nx2) + x
+        elif self.layernorm == "post":
             attended = self.attention(x)
             x = self.norm1(attended + x)
-
-        x = self.do(x)
-
-        if self.layernorm == "pre":
-            x = self.norm2(x)
-            fedforward = self.ff(x) + x
-        else:
             fedforward = self.ff(x)
             x = self.norm2(fedforward + x)
+        else:
+            assert False
 
         x = self.do(x)
+
+        # if self.layernorm == "pre":
+            # x = self.norm2(x)
+            # fedforward = self.ff(x) + x
+        # else:
+            # fedforward = self.ff(x)
+            # x = self.norm2(fedforward + x)
+        # x = self.do(x)
 
         return x
 
@@ -210,6 +254,9 @@ class RegressionTransformer(nn.Module):
         """
         # TODO: add to(device) stuff everywhere
         super().__init__()
+        print("Regression Transformer, layernorm: ", layernorm)
+        print("Regression Transformer, max pool: ", max_pool)
+        print("Regression Transformer, dropout: ", dropout)
 
         self.max_pool = max_pool
         self.pos_embedding = nn.Embedding(embedding_dim=emb,
@@ -229,6 +276,12 @@ class RegressionTransformer(nn.Module):
             nn.Linear(emb, num_classes, bias=True),
         ).to(device)
         self.do = nn.Dropout(dropout).to(device)
+
+    def get_attention_values(self, x):
+        out = []
+        for tblock in self.tblocks:
+            out.append(tblock.get_attention_values(x))
+        return out
 
     def forward(self, x):
         """

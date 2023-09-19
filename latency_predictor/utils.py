@@ -374,6 +374,7 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
 
     inp_dir = os.path.join(inp_dir, inp_tag)
     if not os.path.exists(inp_dir):
+        print("path doesnt exist")
         return [],[]
 
     dfs = []

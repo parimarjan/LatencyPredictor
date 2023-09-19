@@ -164,6 +164,7 @@ class Featurizer():
             print(k, " mean: ", round(v[0], 2), ", std: ", round(v[1], 2))
         # pdb.set_trace()
 
+        self.sys_norms = sys_norms
         self.normalization_stats.update(sys_norms)
 
     def _update_attrs(self, plans, attrs):

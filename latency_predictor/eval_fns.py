@@ -11,6 +11,8 @@ def get_eval_fn(loss_name, **kwargs):
         return LatencyMSE()
     elif loss_name == "latency_qerr":
         return LatencyQError()
+    elif loss_name == "latency_ae":
+        return LatencyAE()
     else:
         print("loss function was: ", loss_name)
         assert False
@@ -27,6 +29,21 @@ class LossFunc():
         return self.__class__.__name__
 
     # TODO: stuff for saving logs
+
+class LatencyAE():
+    def __init__(self, **kwargs):
+        pass
+
+    def eval(self, ests, trues, **kwargs):
+        ests = np.array(ests)
+        trues = np.array(trues)
+        # alllosses = np.square(ests - trues)
+        alllosses = np.abs(ests-trues)
+
+        return alllosses
+
+    def __str__(self):
+        return self.__class__.__name__
 
 
 class LatencyMSE():
