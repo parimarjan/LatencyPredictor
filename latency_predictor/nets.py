@@ -64,6 +64,7 @@ class FactorizedLatencyNet(torch.nn.Module):
                     sys_seq_len,
                     cfg["sys_net"]["max_pool"],
                     layernorm,
+                    cfg["sys_net"]["max_pool"],
                     )
             self.sys_net.to(device)
 
@@ -276,6 +277,7 @@ class TransformerLogs(torch.nn.Module):
             seq_len,
             max_pool,
             layernorm,
+            max_pool,
             ):
         super(TransformerLogs, self).__init__()
         # TODO: calculate this
@@ -427,6 +429,7 @@ class SimpleGCN(torch.nn.Module):
                 self.lin2 = torch.nn.Linear(hl1+self.global_hl1, hl1)
             else:
                 self.lin2 = torch.nn.Linear(hl1, hl1)
+
             self.lin3 = torch.nn.Linear(hl1, hl1)
             self.lin4 = torch.nn.Linear(hl1, self.out_feats)
 

@@ -125,6 +125,8 @@ class NN(LatencyPredictor):
 
         if self.loss_fn_name == "mse":
             self.loss_fn = torch.nn.MSELoss()
+        elif self.loss_fn_name == "ae":
+            self.loss_fn = torch.nn.L1Loss()
         elif self.loss_fn_name == "qerr":
             self.loss_fn = qloss_torch
         else:
@@ -270,6 +272,15 @@ class NN(LatencyPredictor):
                 self.epoch, np.mean(epoch_losses), time.time()-start))
 
         self.log(epoch_losses, "train_loss", "train")
+
+        if hasattr(self.net, "sys_net"):
+            exp_name = self.get_exp_name()
+            rdir = os.path.join(self.result_dir, exp_name)
+            if os.path.exists(rdir):
+                rfn = os.path.join(rdir, "env_net.wt")
+                torch.save(self.net.sys_net.state_dict(),
+                        rfn)
+                print("saved sys net: ", rfn)
 
         if self.cfg["sys_net"]["save_weights"] and \
                 self.cfg["sys_net"]["arch"] == "transformer":
@@ -422,6 +433,16 @@ class NN(LatencyPredictor):
         # self._save_embeddings(["train"])
         # self._save_embeddings(["train", "test"])
         # pdb.set_trace()
+
+        if self.cfg["sys_net"]["arch"] == "transformer":
+            exp_name = self.get_exp_name()
+            rdir = os.path.join(self.result_dir,
+                    exp_name)
+            if os.path.exists(rdir):
+                rfn = os.path.join(rdir, "env_net_normalizers.pkl")
+                with open(rfn, 'wb') as handle:
+                    pickle.dump(self.featurizer.sys_norms, handle)
+                print("saved sys net normalizers: ", rfn)
 
         for self.epoch in range(self.num_epochs):
             if self.epoch % self.eval_epoch == 0 \

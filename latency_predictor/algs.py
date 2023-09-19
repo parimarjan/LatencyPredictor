@@ -5,6 +5,8 @@ import random
 import numpy as np
 from collections import defaultdict
 import pdb
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error,mean_absolute_error
 
 class LatencyPredictor():
 
@@ -44,7 +46,6 @@ class LatencyPredictor():
         pass
 
 class AvgPredictor(LatencyPredictor):
-
     def __init__(self, *args, **kwargs):
         # TODO: set each of the kwargs as variables
         pass
@@ -59,5 +60,71 @@ class AvgPredictor(LatencyPredictor):
 
         for plan in plans:
             ret.append(np.mean(qtimes[plan.graph["qname"]]))
+
+        return ret
+
+class DBMS(LatencyPredictor):
+    def __init__(self, *args, **kwargs):
+        # TODO: set each of the kwargs as variables
+        pass
+
+    def train(self, train_plans, sys_logs, featurizer,
+            **kwargs):
+
+        self.linear_models = {}
+        costs = defaultdict(list)
+        latencies = defaultdict(list)
+
+        for plan in train_plans:
+            latency = plan.graph["latency"]
+            instance = plan.graph["lt_type"]
+            pdata = dict(plan.nodes(data=True))
+            max_cost = max(subdict['TotalCost'] for subdict in
+                    pdata.values())
+
+            costs[instance].append(max_cost)
+            latencies[instance].append(latency)
+
+        for lt,cur_costs in costs.items():
+            # Reshape X to be a 2D array (necessary for scikit-learn's `fit`
+            # method)
+            cur_lats = latencies[lt]
+            X_reshaped = np.array(cur_costs).reshape(-1, 1)
+            Y = np.array(cur_lats)
+            # Initialize the model
+            model = LinearRegression()
+            # Fit the model
+            model.fit(X_reshaped, Y)
+
+            # Predict
+            predictions = model.predict(X_reshaped)
+            # Calculate Mean Squared Error
+            mse = mean_squared_error(Y, predictions)
+            print(f"Mean Squared Error: {mse:.2f}")
+
+            ae = mean_absolute_error(Y, predictions)
+            print(f"Abs Squared Error: {ae:.2f}")
+
+            # Print out the coefficients
+            print("Slope (Coefficient for X):", model.coef_[0])
+            print("Intercept:", model.intercept_)
+
+            self.linear_models[lt] = model
+
+    def test(self, plans, sys_logs, **kwargs):
+        '''
+        '''
+        ret = []
+        for plan in plans:
+            # ret.append(np.mean(qtimes[plan.graph["qname"]]))
+            lt = plan.graph["lt_type"]
+            pdata = dict(plan.nodes(data=True))
+            max_cost = max(subdict['TotalCost'] for subdict in
+                    pdata.values())
+            model = self.linear_models[lt]
+
+            X_reshaped = np.array([max_cost]).reshape(-1, 1)
+            prediction = model.predict(X_reshaped)
+            ret.append(prediction[0])
 
         return ret

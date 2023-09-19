@@ -24,6 +24,7 @@ logger.setLevel(logging.ERROR)
 
 def split_workload(df, cfg):
 
+    print(len(df))
     split_kind = cfg.get("split_kind", "instance")
     # inum = cfg.get("instance_num", 1)
     inum = cfg["num_instances"]
@@ -73,10 +74,14 @@ def parse_args_any(args):
 def get_alg(alg, cfg):
     if alg == "avg":
         return AvgPredictor()
+    elif alg == "dbms":
+        return DBMS()
+
     elif alg == "nn":
         return NN(
                 cfg = cfg,
                 lrscheduler=args.lrscheduler,
+                result_dir = args.result_dir,
                 layernorm=args.layernorm,
                 arch = args.arch, hl1 = args.hl1,
                 subplan_ests = args.subplan_ests,
@@ -252,7 +257,7 @@ def read_flags():
             default=None, help="seed for train/test split")
 
     parser.add_argument("--test_size", type=float, required=False,
-            default=0.0)
+            default=0.5)
 
     ## NN parameters
     parser.add_argument("--lr", type=float, required=False,
@@ -262,17 +267,17 @@ def read_flags():
     parser.add_argument("--hl1", type=int, required=False,
             default=512)
     parser.add_argument("--num_conv_layers", type=int, required=False,
-            default=8)
+            default=4)
     parser.add_argument("--eval_epoch", type=int, required=False,
             default=2)
     parser.add_argument("--num_epochs", type=int, required=False,
-            default=500)
+            default=50)
 
     parser.add_argument("--alg", type=str, required=False,
             default="nn")
 
     parser.add_argument("--eval_fns", type=str, required=False,
-            default="latency_qerr,latency_mse",
+            default="latency_qerr,latency_mse,latency_ae",
             help="final evaluation functions used to evaluate training alg")
 
     parser.add_argument("--loss_fn_name", type=str, required=False,
@@ -318,6 +323,9 @@ def load_dfs(dirs, tags):
             all_dfs.append(cdf)
 
     if len(all_dfs) == 0:
+        print(curdir)
+        print("no all dfs")
+        pdb.set_trace()
         return [],[]
 
     return pd.concat(all_dfs), sys_logs
