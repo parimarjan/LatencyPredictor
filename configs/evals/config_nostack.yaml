@@ -28,7 +28,7 @@ common:
 plan_net:
   arch: "gcn"
   hl: 512
-  num_conv_layers: 4
+  num_conv_layers: 8
   subplan_ests: 0
   dropout : 0.2
 sys_net:
@@ -39,18 +39,19 @@ sys_net:
   pretrained : 1
   use_pretrained_norms: 1
   save_weights: 0
+  max_pool: 1
 
   #pretrained_fn: "models2/all_attention.wt"
   #pretrained_fn: "models2/bg_imdball_attention.wt"
 
-  #pretrained_fn: "models2/nostack_128_filter_actual_fixed.wt"
+  pretrained_fn: "models2/nostack_128_filter_actual_fixed.wt"
   #pretrained_fn: "models2/nostack_128_filter_actual_attn.wt"
   #pretrained_fn: "models2/bg_debug.wt"
   #pretrained_fn: "models2/allbg_debug.wt"
 
   ## bg pretrained
   #pretrained_fn: "models2/bg_multi4.wt"
-  pretrained_fn: "models2/bg_multi4_stack1p.wt"
+  #pretrained_fn: "models2/bg_multi4_stack1p.wt"
   #pretrained_fn: "models2/bg_multi4_imdb2p.wt"
   #pretrained_fn: "models2/bg_multi4.wt"
 
@@ -63,12 +64,11 @@ sys_net:
   log_skip: 2
 
 factorized_net:
-  #arch: "mlp" # dot product
-  arch: "attention" # dot product
+  arch: "mlp" # dot product
+  #arch: "attention" # dot product
+  #arch: "dot"
   num_layers: 2
   embedding_size: 128
-  #arch: "dot"
-  #embedding_size: 32
   pretrained: 1
   hl: 256
 ...

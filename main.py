@@ -191,6 +191,9 @@ def read_flags():
     parser.add_argument("--sys_net_arch", type=str,
             required=False,
             default=None, help="")
+    parser.add_argument("--sys_net_max_pool", type=int,
+            required=False,
+            default=None, help="")
 
     parser.add_argument("--sys_net_num_layers", type=int,
             required=False,
@@ -343,7 +346,7 @@ def main():
                 v = cargs[k]
             wandbcfg.update({k:v})
 
-    wandb_tags = ["2a"]
+    wandb_tags = ["3a"]
     if args.wandb_tags is not None:
         wandb_tags += args.wandb_tags.split(",")
 

@@ -27,7 +27,7 @@ common:
 plan_net:
   arch: "gcn"
   hl: 512
-  num_conv_layers: 4
+  num_conv_layers: 8
   subplan_ests: 0
   dropout : 0.2
 sys_net:
@@ -35,10 +35,11 @@ sys_net:
   pretrained : 1
   use_pretrained_norms: 1
   save_weights: 0
+  max_pool: 1
 
   #pretrained_fn: "models2/noimdb_128_filters_actual_fixed.wt"
   #pretrained_fn: "models2/noimdb2_attention.wt"
-  #pretrained_fn: "models2/bg_imdball_attention.wt"
+  pretrained_fn: "models2/bg_imdball_attention.wt"
 
   #pretrained_fn: "models2/all_attention.wt"
   #pretrained_fn: "models2/all_attention_bins50.wt"
@@ -50,7 +51,7 @@ sys_net:
   #pretrained_fn: "models/all_noimdb_128_col1_fixed.wt"
 
   ## other background processes
-  pretrained_fn: "models2/bg_multi4.wt"
+  #models2/bg_multi4.wt
 
   hl: 512
   num_layers: 8
@@ -64,7 +65,7 @@ factorized_net:
   #arch: "dot"
   #embedding_size: 32
 
-  num_layers: 2
+  num_layers: 1
   pretrained: 1
   hl: 256
 

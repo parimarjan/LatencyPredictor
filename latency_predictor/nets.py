@@ -62,6 +62,7 @@ class FactorizedLatencyNet(torch.nn.Module):
                     cfg["sys_net"]["hl"],
                     cfg["sys_net"]["num_heads"],
                     sys_seq_len,
+                    cfg["sys_net"]["max_pool"],
                     layernorm,
                     )
             self.sys_net.to(device)
@@ -111,6 +112,8 @@ class FactorizedLatencyNet(torch.nn.Module):
     def forward(self, data):
         xplan = self.gcn_net(data)
         xsys = self.sys_net(data)
+        if len(xplan.shape) == 1:
+            xplan = xplan.unsqueeze(dim=1)
 
         if self.fact_arch == "mlp":
             xplan = xplan.squeeze()
@@ -169,6 +172,7 @@ class FactorizedLinuxNet(torch.nn.Module):
                     cfg["sys_net"]["hl"],
                     cfg["sys_net"]["num_heads"],
                     MAX_LOG_LEN,
+                    cfg["sys_net"]["max_pool"],
                     layernorm,
                     )
             self.sys_net.to(device)
@@ -240,11 +244,12 @@ class FactorizedLinuxNet(torch.nn.Module):
 
 class AttentionFactNet(torch.nn.Module):
     def __init__(self, emb, heads, depth, seq_length, num_classes,
-            max_pool=True, dropout=0.2, wide=True, layernorm=True):
+            max_pool=True, dropout=0.2, wide=True, layernorm="post"):
         super(AttentionFactNet, self).__init__()
         self.trans = RegressionTransformer(
                 emb,
                 heads, depth, seq_length, emb,
+                max_pool=0,
                 layernorm=layernorm,
                 ).to(device)
         self.final = SimpleRegression(emb,
@@ -269,13 +274,15 @@ class TransformerLogs(torch.nn.Module):
             hidden_layer_size,
             num_heads,
             seq_len,
+            max_pool,
             layernorm,
             ):
         super(TransformerLogs, self).__init__()
         # TODO: calculate this
         self.net = RegressionTransformer(input_width,
                 num_heads, num_hidden_layers, seq_len, n_output,
-                layernorm,
+                max_pool=max_pool,
+                layernorm=layernorm,
                 ).to(device)
 
     def forward(self, data):

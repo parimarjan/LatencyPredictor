@@ -3,7 +3,7 @@ import numpy as np
 import random
 import pdb
 from latency_predictor.utils import *
-from torch_geometric.data import Data
+#from torch_geometric.data import Data
 import torch
 import pickle
 

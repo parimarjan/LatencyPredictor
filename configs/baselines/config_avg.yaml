@@ -21,7 +21,9 @@ traindata_dir : "LatencyCollectorResults/background"
 #tags: "exp2_stack"
 #tags: "exp10_single_zdbs"
 #tags: "exp1"
-tags: "exp6_multi4,exp6_multi4b,exp10_multi4_1p_imdb"
+#tags: "exp6_multi4,exp6_multi4b,exp10_multi4_1p_imdb"
+#tags: "exp7_multi4"
+tags: "exp12_multi4_tpch_stats_ergast,exp6_multi4b,exp10_multi4_1p,exp13_r7r6,exp7_multi4,exp10_multi4_1p_imdb,exp13_r7r6-b,exp13_r7r6-c,exp11_multi4_stack,exp6_multi4,"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"

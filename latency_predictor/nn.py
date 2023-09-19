@@ -54,10 +54,17 @@ def collate_fn_gcn2(X):
     infos = []
     S = []
 
-    for curx in X:
+    ret = {}
+    ret["sys_logs"] = torch.zeros(len(X), X[0]["sys_logs"].shape[0],
+            X[0]["sys_logs"].shape[1])
+
+    for ci,curx in enumerate(X):
         x = curx["sys_logs"]
         infos.append(curx["info"])
         Ys.append(curx["y"])
+        # ret["sys_logs"][ci] = x
+        # continue
+
         if len(x.shape) == 1:
             S.append(x)
         else:
@@ -76,11 +83,14 @@ def collate_fn_gcn2(X):
                     S.append(torch.nn.functional.pad(x,(0,0,to_pad,0),
                             mode="constant",value=0))
 
-    ret = {}
     ret["graph"] = torch_geometric.data.Batch.from_data_list(Z).to(device)
+
+    ## is this too slow?
     ret["sys_logs"] = torch.stack(S)
 
-    # pdb.set_trace()
+    # ret["sys_logs"] = torch.zeros(len(S), S[0].shape[0], S[0].shape[1])
+    # for bi,b in enumerate(S):
+        # ret["sys_logs"][bi] = b
 
     ret["info"] = infos
     ret["y"] = torch.tensor(Ys, dtype=torch.float)
@@ -162,6 +172,7 @@ class NN(LatencyPredictor):
                     self.cfg["sys_net"]["num_layers"],
                     self.cfg["sys_net"]["num_heads"],
                     int(self.cfg["sys_net"]["log_prev_secs"] / 10),
+                    self.cfg["sys_net"]["max_pool"],
                     self.layernorm)
         elif self.arch == "factorized":
             if self.featurizer.sys_seq_kind == "rows":
@@ -408,6 +419,7 @@ class NN(LatencyPredictor):
             self.scheduler = SequentialLR(self.optimizer,
                     [warmup_scheduler, train_scheduler], [number_warmup_epochs])
 
+        # self._save_embeddings(["train"])
         # self._save_embeddings(["train", "test"])
         # pdb.set_trace()
 
@@ -438,7 +450,8 @@ class NN(LatencyPredictor):
         # efn = efn.replace("models/", "embeddings/")
         # efn = efn.replace("models2/", "embeddings/")
         # efn = efn.replace(".wt", ".pkl")
-        efn = "./embeddings/avg_stack.pkl"
+        # efn = "./embeddings/model_bg.pkl"
+        efn = "./embeddings/avg_bg_m4.pkl"
         print("writing out embeddings to: ", efn)
         with open(efn, "wb") as f:
             pickle.dump(embeddings, f,

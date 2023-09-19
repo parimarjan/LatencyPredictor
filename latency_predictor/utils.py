@@ -328,6 +328,7 @@ def get_plans(df):
         G.graph["qname"] = row["qname"]
         G.graph["instance"] = row["instance"]
         G.graph["lt_type"] = row["lt_type"]
+        G.graph["bk_kind"] = row["bk_kind"]
 
         plans.append(G)
 
@@ -369,6 +370,21 @@ t3_xlarge_gp2_16g=lt-0b413bcc22b3ac8fb
 
 LT_TYPES_DF = pd.read_csv(StringIO(LT_TYPES), sep="=", header=None,
                        names=["lt_type", "lt"])
+
+def get_bk_kind(bdf, start_time, runtime):
+    tmp = bdf[bdf["timestamp"] < start_time]
+    tmp = tmp[tmp["end_timestamp"] > start_time]
+    if len(tmp) == 0:
+        #print(tmp)
+        return "None"
+    #tmp = tmp[tmp["timestamp"] == max(tmp["timestamp"])]
+    #assert len(tmp) <= 1
+
+    if len(tmp) == 0:
+        return "None"
+    vals = list(tmp["kind"].values)
+    vals.sort()
+    return "-".join(vals)
 
 def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
 
@@ -454,6 +470,32 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
         if len(currt) == 0:
             continue
 
+        bkfns = glob.iglob(curdir + "/results/Background*.csv")
+        bdfs = []
+
+        for bkfn in bkfns:
+            instance_name = os.path.basename(os.path.dirname(os.path.dirname(bkfn)))
+            try:
+                bk = pd.read_csv(bkfn, error_bad_lines=False, skipfooter=1)
+            except:
+                continue
+
+            bk["instance"] = instance_name
+            bk = bk.merge(ltdf, on="instance")
+            if len(bk) == 0:
+                continue
+            bdfs.append(bk)
+
+        if len(bdfs) != 0:
+            bdf = pd.concat(bdfs)
+            currt["bk_kind"] = currt.apply(lambda x:
+                    get_bk_kind(bdf, x["start_time"], x["runtime"]) , axis=1)
+        else:
+            currt["bk_kind"] = "None"
+
+        print("Background workloads: ", set(currt["bk_kind"]))
+
+        ## final collection
         dfs.append(currt)
         all_logs[iname] = curlogs
 
@@ -484,7 +526,7 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
     return df, all_logs
 
 PERF_NAMES = ["value", "unit", "stat_name", "job_time", "util?",
-	"value2", "unit2"]
+        "value2", "unit2"]
 
 def load_all_logs_linux(inp_tag, inp_dir,
         skip_timeouts=False):
@@ -515,7 +557,7 @@ def load_all_logs_linux(inp_tag, inp_dir,
         cmds_fn = curdir + "/results/perf/allcommands.csv"
 
         cmdsdf = pd.read_csv(cmds_fn,
-			names=["jobhash", "cmd", "fn", "start_time","runtime", "status"],
+                        names=["jobhash", "cmd", "fn", "start_time","runtime", "status"],
                 error_bad_lines=False,
                 header=None,
                 skipfooter=1,

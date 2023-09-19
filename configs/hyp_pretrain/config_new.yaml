@@ -46,6 +46,7 @@ sys_net:
   ## normal
   num_layers: 8
   num_heads: 16
+  max_pool: 0
 
   ## normal
   #num_layers: 16

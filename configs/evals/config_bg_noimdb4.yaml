@@ -14,7 +14,11 @@ num_bins : 50
 
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/background"
-tags: "exp1"
+#tags: "exp1"
+#tags: "exp6_multi4"
+tags: "exp12_multi4_tpch_stats_ergast,exp6_multi4b,exp10_multi4_1p,exp13_r7r6,exp7_multi4,exp10_multi4_1p_imdb,exp13_r7r6-b,exp13_r7r6-c,exp11_multi4_stack,exp6_multi4,"
+#tags: "exp13_r7r6"
+
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
 eval_tags : "exp1_single,exp2_single"
@@ -36,6 +40,7 @@ sys_net:
   pretrained : 1
   use_pretrained_norms: 1
   save_weights: 0
+  max_pool: 0
 
   #pretrained_fn: "models2/noimdb_128_filters_actual_fixed.wt"
   #pretrained_fn: "models2/noimdb2_attention.wt"

@@ -212,6 +212,11 @@ class RegressionTransformer(nn.Module):
         super().__init__()
 
         self.max_pool = max_pool
+        self.layernorm = layernorm
+
+        print("max pool: ", self.max_pool)
+        print("layer norm: ", self.layernorm)
+
         self.pos_embedding = nn.Embedding(embedding_dim=emb,
                 num_embeddings=seq_length).to(device)
 
@@ -243,8 +248,10 @@ class RegressionTransformer(nn.Module):
 
         x = x + positions
         x = self.do(x)
+
         x = self.tblocks(x)
 
+        ## max pool or mean pool??
         x = x.max(dim=1)[0] if self.max_pool else x.mean(dim=1) # pool over the time dimension
 
         x = self.final_layer(x)

@@ -34,20 +34,21 @@ common:
 plan_net:
   arch: "gcn"
   hl: 512
-  num_conv_layers: 4
+  num_conv_layers: 8
   subplan_ests: 0
   dropout : 0.2
 sys_net:
   # avg/ mlp / transformer
   arch: "transformer"
   pretrained : 0
+  max_pool : 0
   use_pretrained_norms: 0
   save_weights: 0
   pretrained_fn: null
 
   hl: 512
   num_layers: 2
-  num_heads: 64
+  num_heads: 32
   log_prev_secs: 600
   log_skip: 2
 

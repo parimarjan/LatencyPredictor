@@ -1,7 +1,7 @@
 import torch
 from torch.utils import data
 import numpy as np
-from latency_predictor.featurizer import *
+#from latency_predictor.featurizer import *
 from torch_geometric.data import Data, Batch
 from networkx.algorithms.traversal.depth_first_search import dfs_tree
 import copy
@@ -116,6 +116,8 @@ class QueryPlanDataset(data.Dataset):
             info["lt_type"] = G.graph["lt_type"]
             info["latency"] = G.graph["latency"]
             info["qname"] = G.graph["qname"]
+            info["bk_kind"] = G.graph["bk_kind"]
+
             curx["info"] = info
             data.append(curx)
 

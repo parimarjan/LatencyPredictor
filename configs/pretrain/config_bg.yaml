@@ -55,6 +55,7 @@ sys_net:
   arch: "transformer"
   pretrained : 0
   save_weights: 1
+  max_pool: 0
   #pretrained_fn: "models2/bg_imdball_attention.wt"
   #pretrained_fn: "models2/bg_imdball_mlp.wt"
   #pretrained_fn: "models2/single_noimdbwk_bg_stack_attention.wt"

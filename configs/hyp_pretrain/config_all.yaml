@@ -14,7 +14,9 @@ num_bins : 5000
 traindata_dir : "LatencyCollectorResults/background,LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
 #traindata_dir : "LatencyCollectorResults/background,LatencyCollectorResults/new"
 
-tags: "exp1_single,exp2_single,exp3_single,exp1,exp2_stack,exp3_stack_multi1,exp4_ceb2,exp5_tpch_stats_ergast,exp6_multi4,exp7_multi4,exp9_stack1,exp9_stack2,exp10_multi4_1p,exp11_multi4_stack,exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs,t7xlarge-gp3-c,t7xlarge-gp3-d,t7xlarge-gp3-e-stressng,t7xlarge-gp3-f-stressng"
+## no stack
+tags: "exp1_single,exp2_single,exp3_single,exp1,exp4_ceb2,exp5_tpch_stats_ergast,exp6_multi4,exp7_multi4,exp10_multi4_1p,exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs,t7xlarge-gp3-c,t7xlarge-gp3-d,t7xlarge-gp3-e-stressng,t7xlarge-gp3-f-stressng"
+#tags: "exp1_single,exp2_single,exp3_single,exp1,exp2_stack,exp3_stack_multi1,exp4_ceb2,exp5_tpch_stats_ergast,exp6_multi4,exp7_multi4,exp9_stack1,exp9_stack2,exp10_multi4_1p,exp11_multi4_stack,exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs,t7xlarge-gp3-c,t7xlarge-gp3-d,t7xlarge-gp3-e-stressng,t7xlarge-gp3-f-stressng"
 #tags: "exp1"
 #tags: "exp2_stack,exp4_ceb2"
 
@@ -46,6 +48,7 @@ sys_net:
   ## normal
   num_layers: 8
   num_heads: 16
+  max_pool: 0
 
   ## normal
   #num_layers: 16

@@ -49,6 +49,7 @@ sys_net:
   num_heads: 16
   log_prev_secs: 600
   log_skip: 2
+  max_pool: 1
 
 factorized_net:
   #arch: "mlp" # dot product
