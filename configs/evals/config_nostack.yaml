@@ -7,7 +7,8 @@ split_kind : "instances" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
-ignore_node_feats: "Alias,Filter"
+#ignore_node_feats: "Alias,Filter"
+ignore_node_feats: ""
 
 max_set_len : 100
 num_bins : 100
@@ -51,7 +52,7 @@ sys_net:
   #pretrained_fn: "models2/bg_imdball_attention.wt"
 
   ## old good run; max_pool:1,layers:8,heads:16
-  pretrained_fn: "models2/nostack_128_filter_actual_fixed.wt"
+  #pretrained_fn: "models2/nostack_128_filter_actual_fixed.wt"
 
   #pretrained_fn: "models2/nostack_128_filter_actual_attn.wt"
   #pretrained_fn: "models2/bg_debug.wt"
@@ -69,7 +70,7 @@ sys_net:
   #pretrained_fn: "models3/nostack_128_actual_ae.wt"
 
   ### good one; no actual vals; max_pool: 1
-  #pretrained_fn: "models3/nostack_128_actual_ae.wt"
+  pretrained_fn: "models3/nostack_128_actual_ae.wt"
   #pretrained_fn: "models_final/nostack_128_actual_ae.wt"
 
   ### with actual values when training; maxpool: 0

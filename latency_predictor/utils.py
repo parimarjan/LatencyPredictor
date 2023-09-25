@@ -20,9 +20,9 @@ import torch
 from torch.autograd import Variable
 
 # MIN_EST = 0.0001
-MIN_EST = 0.1
+MIN_EST = 1.0
 
-USE_TEST_INSTANCES = True
+USE_TEST_INSTANCES = False
 TEST_INSTANCE_TYPES = ["a1_large_gp3_4g", "r7g_large_gp2_16g",
         "t3a_medium_gp3_4g",
         "m6a_large_mag_8g",
