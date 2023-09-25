@@ -1,23 +1,27 @@
 %YAML 1.2
 ---
 #split_kind : "query" # instances,query,...;
-split_kind : "instances" # instances,query,...;
+#split_kind : "instances" # instances,query,...;
+split_kind : "lt_type" # instances,query,...;
+
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
 #max_set_len : 5000
 #num_bins : 250
 
-max_set_len : 1000
-#num_bins : 100
+max_set_len : 100
 num_bins : 50
 
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/background"
 #tags: "exp1"
 #tags: "exp6_multi4"
-tags: "exp12_multi4_tpch_stats_ergast,exp6_multi4b,exp10_multi4_1p,exp13_r7r6,exp7_multi4,exp10_multi4_1p_imdb,exp13_r7r6-b,exp13_r7r6-c,exp11_multi4_stack,exp6_multi4,"
-#tags: "exp13_r7r6"
+
+
+tags: "exp1,exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_imdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b"
+
+#tags: "exp1"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
@@ -32,15 +36,16 @@ plan_net:
   arch: "gcn"
   #arch: "gat"
   hl: 512
-  num_conv_layers: 4
+  num_conv_layers: 8
   subplan_ests: 0
   dropout : 0.2
+  pretrained: 0
+
 sys_net:
   arch: "transformer"
   pretrained : 1
   use_pretrained_norms: 1
   save_weights: 0
-  max_pool: 0
 
   #pretrained_fn: "models2/noimdb_128_filters_actual_fixed.wt"
   #pretrained_fn: "models2/noimdb2_attention.wt"
@@ -59,35 +64,37 @@ sys_net:
   #pretrained_fn: "models2/bg_stack_attention_larger.wt"
 
   #pretrained_fn: "models2/bg_debug.wt"
-  pretrained_fn: "models2/bg_multi4.wt"
+  #pretrained_fn: "models2/bg_multi4.wt"
 
   ## includes imdb (ceb-2 and joblight)
   #pretrained_fn: "models/all_noimdb_128_col1_fixed.wt"
+
+  #pretrained_fn: "models3/bg_noimdb.wt"
+
+  # maxpool:1,fact_arch:mlp,layers:2
+  #pretrained_fn: "models3/bg_noimdb_ae.wt"
+
+  # maxpool:0,fact_arch:mlp,layers:4
+  #pretrained_fn: "models3/bg_noimdb_ae2.wt"
+
+  # maxpool:1,fact_arch:mlp,layers:2
+  pretrained_fn: "models3/new_bg_noimdb_ae.wt"
+
   hl: 512
-
-  ## normal
-  num_layers: 8
+  num_layers: 4
   num_heads: 16
-
-  #small
-  #num_layers: 4
-  #num_heads: 4
-
-  ## larger
-  #num_layers: 16
-  #num_heads: 16
+  max_pool: 1
+  dropout: 0.0
 
   log_prev_secs: 600
   log_skip: 2
 
 factorized_net:
-  #arch: "mlp" # dot product
-  arch: "attention" # dot product
+  arch: "mlp"
+  #arch: "attention"
   embedding_size: 128
-  #arch: "dot"
-  #embedding_size: 32
   pretrained: 1
   hl: 256
   num_layers: 2
-  #num_layers: 1
+  dropout: 0.0
 ...

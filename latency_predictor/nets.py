@@ -64,7 +64,7 @@ class FactorizedLatencyNet(torch.nn.Module):
                     sys_seq_len,
                     cfg["sys_net"]["max_pool"],
                     layernorm,
-                    cfg["sys_net"]["max_pool"],
+                    cfg["sys_net"]["dropout"],
                     )
             self.sys_net.to(device)
 
@@ -82,7 +82,9 @@ class FactorizedLatencyNet(torch.nn.Module):
             self.fact_net = SimpleRegression(
                     emb_size,
                     1, cfg["factorized_net"]["num_layers"],
-                    cfg["factorized_net"]["hl"])
+                    cfg["factorized_net"]["hl"],
+                    dropout=cfg["factorized_net"]["dropout"],
+                    )
             self.fact_net.to(device)
 
         elif cfg["factorized_net"]["arch"] == "attention":
@@ -175,6 +177,7 @@ class FactorizedLinuxNet(torch.nn.Module):
                     MAX_LOG_LEN,
                     cfg["sys_net"]["max_pool"],
                     layernorm,
+                    cfg["sys_net"]["dropout"],
                     )
             self.sys_net.to(device)
 
@@ -277,7 +280,7 @@ class TransformerLogs(torch.nn.Module):
             seq_len,
             max_pool,
             layernorm,
-            max_pool,
+            dropout,
             ):
         super(TransformerLogs, self).__init__()
         # TODO: calculate this
@@ -285,6 +288,7 @@ class TransformerLogs(torch.nn.Module):
                 num_heads, num_hidden_layers, seq_len, n_output,
                 max_pool=max_pool,
                 layernorm=layernorm,
+                dropout=dropout,
                 ).to(device)
 
     def forward(self, data):
@@ -330,10 +334,13 @@ class SimpleRegression(torch.nn.Module):
             num_hidden_layers,
             hidden_layer_size,
             final_act="none",
+            dropout=0.2,
             ):
 
         super(SimpleRegression, self).__init__()
         print(input_width, n_output)
+
+        self.do = nn.Dropout(dropout)
         self.final_act = final_act
         hidden_layer_size = int(hidden_layer_size)
         self.layers = nn.ModuleList()
@@ -358,12 +365,15 @@ class SimpleRegression(torch.nn.Module):
 
     def forward(self, x):
         x = x.to(device, non_blocking=True)
+        x = self.do(x)
         output = x
         for layer in self.layers:
+            output = self.do(output)
             output = layer(output)
 
         if self.final_act == "sigmoid":
             output = torch.sigmoid(output)
+
         return output
 
 class SimpleGCN(torch.nn.Module):
@@ -374,6 +384,7 @@ class SimpleGCN(torch.nn.Module):
             out_feats=1,
             final_act="none",
             dropout=0.2,
+            lin_dropout=0.0,
             arch="gcn"
             ):
         super(SimpleGCN, self).__init__()
@@ -434,18 +445,20 @@ class SimpleGCN(torch.nn.Module):
             self.lin4 = torch.nn.Linear(hl1, self.out_feats)
 
         self.do = nn.Dropout(self.dropout)
+        self.lin_do = nn.Dropout(lin_dropout)
 
     def forward(self, data):
         data = data["graph"]
         x, edge_index = data.x, data.edge_index
         x = x.to(device, non_blocking=True)
-        x = self.do(x)
+        # x = self.do(x)
 
         if self.global_feats:
             globalx = data.global_feats
 
         for layer in self.layers:
             x = F.relu(layer(x, edge_index))
+            x = self.do(x)
 
         if self.subplan_ests:
             assert data.num_graphs == 1
@@ -482,6 +495,7 @@ class SimpleGCN(torch.nn.Module):
             # fully connected part
             x = self.lin1(x)
             x = F.relu(x)
+            x = self.lin_do(x)
 
             # concat them
             if self.global_feats:
@@ -489,9 +503,12 @@ class SimpleGCN(torch.nn.Module):
 
             x = self.lin2(x)
             x = F.relu(x)
+            x = self.lin_do(x)
+
             x = self.lin3(x)
             x = F.relu(x)
             x = self.lin4(x)
+
             # if self.final_act == "sigmoid":
                 # x = torch.sigmoid(x)
 

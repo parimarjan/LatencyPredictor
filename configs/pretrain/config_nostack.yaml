@@ -4,10 +4,12 @@ split_kind : "query" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
-ignore_node_feats: "Alias,"
+ignore_node_feats: "Alias,Filter"
 
-max_set_len : 50000
-num_bins : 5000
+#max_set_len : 50000
+#num_bins : 5000
+max_set_len : 100
+num_bins : 25
 
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
@@ -20,33 +22,43 @@ eval_tags : "exp2_single"
 
 common:
   batch_size: 16
+
 plan_net:
   arch: "gcn"
-  hl: 512
-  num_conv_layers: 4
+  hl: 128
+
+  num_conv_layers: 8
   subplan_ests: 0
-  dropout : 0
+  dropout : 0.2
 sys_net:
   # mlp / transformer
   arch: "transformer"
   pretrained : 0
   save_weights: 1
-  pretrained_fn: "models2/nostack_128_filter_actual_attn.wt"
+  #pretrained_fn: "models2/nostack_128_filter_actual_attn.wt"
+  #pretrained_fn: "models3/nostack_128_filter_actual.wt"
+  #pretrained_fn: "models3/nostack_128_actual_ae.wt"
+  #pretrained_fn: "models3/nostack_128_actual_ae.wt"
+  #pretrained_fn: "models3/nostack_128_actual_ae2.wt"
+  #pretrained_fn: "models3/nostack_128_actual_ae2_fact4.wt"
 
+  #pretrained_fn: "models3/new_nostack_ae.wt"
+
+  pretrained_fn: "models3/nocat_nostack_ae.wt"
+
+  max_pool: 1
   hl: 512
   num_layers: 8
   num_heads: 16
   log_prev_secs: 600
   log_skip: 2
+  dropout: 0.2
 
 factorized_net:
-  #arch: "mlp" # dot product
-  arch: "attention" # dot product
+  arch: "mlp" # dot product
   embedding_size: 128
-
-  #arch: "dot"
-  #embedding_size: 128
   pretrained: 0
   hl: 256
   num_layers: 2
+  dropout: 0.2
 ...

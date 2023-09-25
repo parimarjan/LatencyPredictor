@@ -22,32 +22,102 @@ import multiprocessing as mp
 logger = logging.getLogger("wandb")
 logger.setLevel(logging.ERROR)
 
+
 def split_workload(df, cfg):
+
+    if args.skip_workload is not None:
+        df = df[df["query_dir"].str.contains(args.skip_workload)]
+        print("skipped workload: ", args.skip_workload)
 
     print(len(df))
     split_kind = cfg.get("split_kind", "instance")
     # inum = cfg.get("instance_num", 1)
     inum = cfg["num_instances"]
 
-    if split_kind == "instances":
+    if split_kind in ["instances", "instances-query"]:
+        print("Random seed: ", cfg["seed"], " Num Instances: ", inum)
+        random.seed(cfg["seed"])
+        orig_len = len(df)
+        filtered_df = df.groupby('instance').filter(lambda x: len(x) >= 50)
+        after_filter_len = len(filtered_df)
+        print("After filtering instance names based on len, {} --> {}"\
+                .format(orig_len, after_filter_len))
+
+        instances = list(set(filtered_df["instance"]))
+        instances.sort()
+
+        if USE_TEST_INSTANCES:
+            test_lts = TEST_INSTANCE_TYPES
+            tmp = df[df["lt_type"].isin(test_lts)]
+            test_qinstances = list(set(tmp["instance"]))
+            rem_instances = [q for q in instances if q not in test_qinstances]
+            train_qinstances = random.sample(rem_instances, inum)
+        else:
+            train_qinstances = random.sample(instances, inum)
+            test_qinstances = [q for q in instances if q not in
+                    train_qinstances]
+
+        print("Training instances: ", train_qinstances)
+        print("Test instances: ", test_qinstances)
+
+        train_df = df[df["instance"].isin(train_qinstances)]
+        test_df = df[df["instance"].isin(test_qinstances)]
+
+        if "query" in split_kind:
+            random.seed(cfg["seed"])
+            qnames = list(set(train_df["qname"]))
+            # split into train / test data
+            test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
+            train_qnames = [q for q in qnames if q not in test_qnames]
+            train_df = train_df[train_df["qname"].isin(train_qnames)]
+            test_df = test_df[test_df["qname"].isin(test_qnames)]
+
+    elif split_kind in ["lt_type"]:
         print("Random seed: ", cfg["seed"], " Num Instances: ", inum)
         random.seed(cfg["seed"])
         instances = list(set(df["lt_type"]))
         instances.sort()
-        train_qinstances = random.sample(instances, inum)
-        test_qinstances = [q for q in instances if q not in
-                train_qinstances]
+        print("All instances: ", instances)
+
+        if USE_TEST_INSTANCES:
+            test_qinstances = TEST_INSTANCE_TYPES
+            non_test_qinstances = [q for q in instances if q not in
+                    test_qinstances]
+            train_qinstances = random.sample(non_test_qinstances, inum)
+            print(train_qinstances)
+            # pdb.set_trace()
+        else:
+            train_qinstances = random.sample(instances, inum)
+            test_qinstances = [q for q in instances if q not in
+                    train_qinstances]
+
+        print("Training instances: ", train_qinstances)
+        print("Test instances: ", test_qinstances)
+
         train_df = df[df["lt_type"].isin(train_qinstances)]
         test_df = df[df["lt_type"].isin(test_qinstances)]
-    else:
+
+    elif split_kind in ["query_dir", "query_dir-test_instances"]:
+        test_qdir = cfg["test_query_dir"].split(",")
+        train_df = df[~df["query_dir"].isin(test_qdir)]
+        test_df = df[df["query_dir"].isin(test_qdir)]
+
+        if "test_instances" in split_kind:
+            train_df = train_df[train_df["lt_type"].isin(TEST_INSTANCE_TYPES)]
+            test_df = test_df[test_df["lt_type"].isin(TEST_INSTANCE_TYPES)]
+
+    elif split_kind == "query":
         random.seed(cfg["seed"])
         qnames = list(set(df["qname"]))
+        qnames.sort()
         # split into train / test data
         test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
         train_qnames = [q for q in qnames if q not in test_qnames]
 
         train_df = df[df["qname"].isin(train_qnames)]
         test_df = df[df["qname"].isin(test_qnames)]
+    else:
+        assert False
 
     return train_df,test_df
 
@@ -75,7 +145,9 @@ def get_alg(alg, cfg):
     if alg == "avg":
         return AvgPredictor()
     elif alg == "dbms":
-        return DBMS()
+        return DBMS(granularity="lt_type")
+    elif alg == "dbms-all":
+        return DBMS(granularity="all")
 
     elif alg == "nn":
         return NN(
@@ -150,13 +222,13 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
                                            "99p")
         wandb.run.summary[loss_key2] = np.percentile(lossarr, 99)
 
-        print("tags: {}, samples_type: {}, alg: {}, samples: {}, {}: mean: {}, median: {}, 95p: {}, 99p: {}"\
+        print("tags: {}, samples_type: {}, alg: {}, samples: {}, {}: mean: {}, median: {}, 90p: {}, 99p: {}"\
                 .format(cfg["tags"],
                     samples_type, alg, len(lossarr),
                     loss_func.__str__(),
                     np.round(np.mean(lossarr),3),
                     np.round(np.median(lossarr),3),
-                    np.round(np.percentile(lossarr,95),3),
+                    np.round(np.percentile(lossarr,90),3),
                     np.round(np.percentile(lossarr,99),3)))
 
     print("loss computations took: {} seconds".format(time.time()-loss_start))
@@ -169,6 +241,9 @@ def read_flags():
             default=16, help="")
     parser.add_argument("--config", type=str, required=False,
             default="config.yaml", help="")
+    parser.add_argument("--skip_workload", type=str, required=False,
+            default=None, help="")
+
     parser.add_argument("--sys_seq_kind", type=str, required=False,
             default="rows", help="")
 
@@ -193,6 +268,13 @@ def read_flags():
     parser.add_argument("--sys_net_pretrained_fn", type=str,
             required=False,
             default=None, help="")
+    parser.add_argument("--sys_net_pretrained", type=int,
+            required=False,
+            default=None, help="")
+    parser.add_argument("--fact_net_pretrained", type=int,
+            required=False,
+            default=None, help="")
+
     parser.add_argument("--sys_net_arch", type=str,
             required=False,
             default=None, help="")
@@ -211,8 +293,12 @@ def read_flags():
             default="post")
     parser.add_argument("--lrscheduler", type=int, required=False,
             default=0)
+
     parser.add_argument("--actual_feats", type=int, required=False,
             default=0)
+    parser.add_argument("--feat_onehot", type=int, required=False,
+            default=1)
+
     parser.add_argument("--table_feat", type=int, required=False,
             default=0, help="1/0; add one-hot features for table in query.")
     parser.add_argument("--col_feat", type=int, required=False,
@@ -257,13 +343,13 @@ def read_flags():
             default=None, help="seed for train/test split")
 
     parser.add_argument("--test_size", type=float, required=False,
-            default=0.5)
+            default=0.3)
 
     ## NN parameters
     parser.add_argument("--lr", type=float, required=False,
-            default=0.00005)
+            default=0.00001)
     parser.add_argument("--weight_decay", type=float, required=False,
-            default=1.0)
+            default=0.1)
     parser.add_argument("--hl1", type=int, required=False,
             default=512)
     parser.add_argument("--num_conv_layers", type=int, required=False,
@@ -277,11 +363,11 @@ def read_flags():
             default="nn")
 
     parser.add_argument("--eval_fns", type=str, required=False,
-            default="latency_qerr,latency_mse,latency_ae",
+            default="latency_mse,latency_qerr,latency_ae",
             help="final evaluation functions used to evaluate training alg")
 
     parser.add_argument("--loss_fn_name", type=str, required=False,
-            default="mse")
+            default="ae")
 
     parser.add_argument("--arch", type=str, required=False,
             default="factorized", help="tcnn/gcn; architecture of trained neural net.")
@@ -316,7 +402,9 @@ def load_dfs(dirs, tags):
             # except Exception as e:
                 # print(tag, e)
                 # continue
-            assert tag not in sys_logs
+            if tag in sys_logs:
+                print(tag, " in sys logs already!")
+                pdb.set_trace()
 
             sys_logs[tag] = clogs
             cdf["tag"] = tag
@@ -335,6 +423,9 @@ def main():
 
     with open(args.config) as f:
         cfg = yaml.safe_load(f.read())
+
+    if "max_pool" not in cfg["sys_net"]:
+        cfg["sys_net"]["max_pool"] = False
 
     wandbcfg = {}
     wandbcfg.update(vars(args))
@@ -408,6 +499,7 @@ New Env Unseen Plans: {}".format(
                             cfg,
                             sys_seq_kind=args.sys_seq_kind,
                             actual_feats = args.actual_feats,
+                            feat_onehot = args.feat_onehot,
                             feat_undirected_edges = args.feat_undirected_edges,
                             feat_noncumulative_costs = args.feat_noncumulative_costs,
                             log_transform_y = args.log_transform_y,

@@ -9,16 +9,18 @@ max_set_len : 1000
 num_bins : 100
 
 #gpu: 0
-traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
+#traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
+traindata_dir : "LatencyCollectorResults/new"
+
 ###tags: "exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
 
 ### different splits here
-#tags: "exp1_single,exp2_single,exp3_single"
+tags: "exp1_single,exp2_single,exp3_single"
 #tags: "exp2_stack"
 #tags: "exp10_single_zdbs"
 #tags: "exp1"
 #tags: "exp1"
-tags: "exp8_single_stack"
+#tags: "exp8_single_stack"
 #tags: "exp2_stack"
 
 use_eval_tags : 0
@@ -37,6 +39,8 @@ plan_net:
   num_conv_layers: 8
   subplan_ests: 0
   dropout : 0.2
+  pretrained: 0
+
 sys_net:
   # avg/ mlp / transformer
   arch: "transformer"
@@ -48,17 +52,19 @@ sys_net:
 
   hl: 512
   num_layers: 2
-  num_heads: 32
+  num_heads: 16
   log_prev_secs: 600
   log_skip: 2
+  dropout: 0.2
 
 factorized_net:
-  #arch: "mlp" # dot product
-  arch: "dot" # dot product
+  arch: "mlp" # dot product
   embedding_size: 128
   #arch: "dot"
   #embedding_size: 32
   pretrained: 0
   hl: 256
   num_layers: 2
+  dropout: 0.0
+
 ...

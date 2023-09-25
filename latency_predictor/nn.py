@@ -98,15 +98,27 @@ def collate_fn_gcn2(X):
     return ret
 
 def qloss_torch(yhat, ytrue):
-    min_est = np.array([0.1]*len(yhat))
+    min_est = np.array([MIN_EST]*len(yhat))
     assert yhat.shape == ytrue.shape
-    min_est = torch.tensor(min_est, dtype=torch.float)
+    min_est = torch.tensor(min_est, dtype=torch.float,
+            device="cuda:0")
 
     ytrue = torch.max(ytrue, min_est)
     yhat = torch.max(yhat, min_est)
 
     errors = torch.max( (ytrue / yhat), (yhat / ytrue))
     return torch.mean(errors)
+
+def relloss_torch(yhat, ytrue):
+    min_est = np.array([MIN_EST]*len(yhat))
+    # min_est = torch.tensor(min_est, dtype=torch.float)
+    min_est = torch.tensor(min_est, dtype=torch.float,
+            device="cuda:0")
+    yhat = torch.max(yhat, min_est)
+    ytrue = torch.max(ytrue, min_est)
+    relative_errors = torch.abs(yhat - ytrue) / (torch.abs(ytrue))
+
+    return torch.mean(relative_errors)
 
 class NN(LatencyPredictor):
     def __init__(self, *args, cfg={}, **kwargs):
@@ -129,6 +141,8 @@ class NN(LatencyPredictor):
             self.loss_fn = torch.nn.L1Loss()
         elif self.loss_fn_name == "qerr":
             self.loss_fn = qloss_torch
+        elif self.loss_fn_name == "relloss":
+            self.loss_fn = relloss_torch
         else:
             assert False
 
@@ -152,7 +166,7 @@ class NN(LatencyPredictor):
         if self.arch in ["gcn","gat"]:
             self.net = SimpleGCN(self.featurizer.num_features,
                     self.featurizer.num_global_features,
-                    self.hl1, self.num_conv_layers,
+                    self.hl1, self.cfg["plan_net"]["num_conv_layers"],
                     final_act=self.final_act,
                     subplan_ests = self.subplan_ests,
                     out_feats=1,
@@ -295,6 +309,12 @@ class NN(LatencyPredictor):
                         fname)
                 print("saved fact net: ", fname)
 
+            if hasattr(self.net, "gcn_net"):
+                fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
+                                                                     "/gcn_")
+                torch.save(self.net.gcn_net.state_dict(),
+                        fname)
+                print("saved gcn net: ", fname)
 
     def log(self, losses, loss_type, samples_type):
         for i, func in enumerate(self.summary_funcs):
@@ -388,12 +408,15 @@ class NN(LatencyPredictor):
         self._init_net()
         print(self.net)
 
-        if self.cfg["sys_net"]["pretrained"]:
+        if self.cfg["sys_net"]["pretrained"] and \
+                hasattr(self.net, "sys_net"):
             print("Going to use pretrained system model from: ",
                     self.cfg["sys_net"]["pretrained_fn"])
 
             self.net.sys_net.load_state_dict(torch.load(
-                    self.cfg["sys_net"]["pretrained_fn"]))
+                    self.cfg["sys_net"]["pretrained_fn"],
+                    map_location="cpu",
+                    ))
 
             for parameter in self.net.sys_net.parameters():
                 parameter.requires_grad = False
@@ -407,10 +430,27 @@ class NN(LatencyPredictor):
                 print("Going to use pretrained factorized head from: ",
                         fname)
                 self.net.fact_net.load_state_dict(torch.load(
-                    fname))
+                    fname,
+                    map_location="cpu",
+                    ))
 
                 for parameter in self.net.fact_net.parameters():
                     parameter.requires_grad = False
+
+            if self.cfg["plan_net"]["pretrained"]:
+                fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
+                                                                     "/gcn_")
+
+                print("Going to use pretrained gcn net from: ",
+                        fname)
+                self.net.gcn_net.load_state_dict(torch.load(
+                    fname,
+                    map_location="cpu",
+                    ))
+
+                if self.cfg["plan_net"]["pretrained"] == 1:
+                    for parameter in self.net.gcn_net.parameters():
+                        parameter.requires_grad = False
 
         self.optimizer = torch.optim.AdamW(self.net.parameters(), lr=self.lr,
                 weight_decay=self.weight_decay)

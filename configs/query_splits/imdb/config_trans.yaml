@@ -10,6 +10,10 @@ num_bins : 25
 
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
+
+#traindata_dir : "LatencyCollectorResults/background"
+#traindata_dir : "LatencyCollectorResults/new"
+
 ###tags: "exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
 
 ### different splits here
@@ -50,9 +54,10 @@ common:
 plan_net:
   arch: "gcn"
   hl: 512
-  num_conv_layers: 4
+  num_conv_layers: 8
   subplan_ests: 0
   dropout : 0.2
+
 sys_net:
   # avg/ mlp / transformer
   arch: "transformer"
@@ -60,11 +65,13 @@ sys_net:
   use_pretrained_norms: 0
   save_weights: 0
   pretrained_fn: null
-  max_pool: 0
+
+  max_pool: 1
+  dropout: 0.2
 
   hl: 512
   num_layers: 2
-  num_heads: 32
+  num_heads: 16
   log_prev_secs: 600
   log_skip: 2
 
@@ -77,4 +84,5 @@ factorized_net:
   pretrained: 0
   hl: 256
   num_layers: 2
+  dropout: 0.2
 ...

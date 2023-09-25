@@ -19,6 +19,18 @@ from io import StringIO
 import torch
 from torch.autograd import Variable
 
+# MIN_EST = 0.0001
+MIN_EST = 0.1
+
+USE_TEST_INSTANCES = True
+TEST_INSTANCE_TYPES = ["a1_large_gp3_4g", "r7g_large_gp2_16g",
+        "t3a_medium_gp3_4g",
+        "m6a_large_mag_8g",
+        #"t4g_large_mag_8g",
+        "c7g_large_mag_4g",
+        "t3_large_gp2_8g",
+        ]
+
 def explain_to_nx(plan):
     def recurse(G, cur_plan, cur_key, cur_node):
         if cur_plan is None:
@@ -390,7 +402,6 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
 
     inp_dir = os.path.join(inp_dir, inp_tag)
     if not os.path.exists(inp_dir):
-        print("path doesnt exist")
         return [],[]
 
     dfs = []
@@ -477,7 +488,8 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
         for bkfn in bkfns:
             instance_name = os.path.basename(os.path.dirname(os.path.dirname(bkfn)))
             try:
-                bk = pd.read_csv(bkfn, error_bad_lines=False, skipfooter=1)
+                bk = pd.read_csv(bkfn, error_bad_lines=False, skipfooter=1,
+                        engine="python")
             except:
                 continue
 
@@ -494,7 +506,7 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
         else:
             currt["bk_kind"] = "None"
 
-        print("Background workloads: ", set(currt["bk_kind"]))
+        # print("Background workloads: ", set(currt["bk_kind"]))
 
         ## final collection
         dfs.append(currt)

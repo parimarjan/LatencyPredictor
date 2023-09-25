@@ -31,6 +31,8 @@ plan_net:
   num_conv_layers: 4
   subplan_ests: 0
   dropout : 0.2
+  pretrained: 0
+
 sys_net:
   # mlp / transformer
   #arch: "avg"
@@ -46,7 +48,7 @@ sys_net:
   #pretrained_fn: "models2/noimdb_128_fixed.wt"
   #pretrained_fn: "models2/noimdb_128_filters_fixed.wt"
 
-  #pretrained_fn: "models2/noimdb_128_filters_actual_fixed.wt"
+  pretrained_fn: "models2/noimdb_128_filters_actual_fixed.wt"
   #pretrained_fn: "models2/stacktpch_128.wt"
 
   ## includes imdb (ceb-2 and joblight)
@@ -56,21 +58,23 @@ sys_net:
   #pretrained_fn: "models2/bg_multi4.wt"
   #pretrained_fn: "models2/bg_multi4_stack1p.wt"
   #pretrained_fn: "models2/bg_multi4_imdb2p.wt"
-  pretrained_fn: "models2/bg_multi4.wt"
+  #pretrained_fn: "models2/bg_multi4.wt"
 
   hl: 512
   num_layers: 8
   num_heads: 16
   log_prev_secs: 600
   log_skip: 2
+  dropout: 0.0
 
 factorized_net:
-  #arch: "mlp" # dot product
-  arch: "attention"
+  arch: "mlp" # dot product
+  #arch: "attention"
   embedding_size: 128
   #arch: "dot"
   #embedding_size: 32
   pretrained: 1
   hl: 256
   num_layers: 2
+  dropout: 0.0
 ...

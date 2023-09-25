@@ -1,7 +1,7 @@
 import torch
 from torch.utils import data
 import numpy as np
-#from latency_predictor.featurizer import *
+from latency_predictor.featurizer import *
 from torch_geometric.data import Data, Batch
 from networkx.algorithms.traversal.depth_first_search import dfs_tree
 import copy

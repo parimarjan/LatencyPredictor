@@ -11,6 +11,8 @@ def get_eval_fn(loss_name, **kwargs):
         return LatencyMSE()
     elif loss_name == "latency_qerr":
         return LatencyQError()
+    elif loss_name == "latency_relerr":
+        return LatencyRelError()
     elif loss_name == "latency_ae":
         return LatencyAE()
     else:
@@ -59,11 +61,10 @@ class LatencyMSE():
     def __str__(self):
         return self.__class__.__name__
 
-
 class LatencyQError():
 
     def __init__(self, **kwargs):
-        self.min_est = 1.0
+        self.min_est = MIN_EST
 
     def eval(self, ests, trues, **kwargs):
         ests = np.array(ests)
@@ -72,6 +73,26 @@ class LatencyQError():
         ests = np.maximum(ests, self.min_est)
 
         alllosses = np.maximum((ests / trues), (trues / ests))
+        return alllosses
+
+    def __str__(self):
+        return self.__class__.__name__
+
+class LatencyRelError():
+
+    def __init__(self, **kwargs):
+        self.min_est = MIN_EST
+
+    def eval(self, ests, trues, **kwargs):
+        ests = np.array(ests)
+        trues = np.array(trues)
+        trues = np.maximum(trues, self.min_est)
+        ests = np.maximum(ests, self.min_est)
+        # print("Ests: ", ests)
+
+        # alllosses = np.maximum((ests / trues), (trues / ests))
+        alllosses = np.abs(ests - trues) / np.abs(trues)
+
         return alllosses
 
     def __str__(self):

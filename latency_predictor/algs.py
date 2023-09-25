@@ -66,7 +66,11 @@ class AvgPredictor(LatencyPredictor):
 class DBMS(LatencyPredictor):
     def __init__(self, *args, **kwargs):
         # TODO: set each of the kwargs as variables
-        pass
+        for k, val in kwargs.items():
+            self.__setattr__(k, val)
+
+    def __str__(self):
+        return "DBMS-" + self.granularity
 
     def train(self, train_plans, sys_logs, featurizer,
             **kwargs):
@@ -76,14 +80,22 @@ class DBMS(LatencyPredictor):
         latencies = defaultdict(list)
 
         for plan in train_plans:
+            # if plan.graph["bk_kind"] != "None":
+                # continue
+
             latency = plan.graph["latency"]
             instance = plan.graph["lt_type"]
+
             pdata = dict(plan.nodes(data=True))
             max_cost = max(subdict['TotalCost'] for subdict in
                     pdata.values())
 
-            costs[instance].append(max_cost)
-            latencies[instance].append(latency)
+            if self.granularity == "all":
+                costs["all"].append(max_cost)
+                latencies["all"].append(latency)
+            else:
+                costs[instance].append(max_cost)
+                latencies[instance].append(latency)
 
         for lt,cur_costs in costs.items():
             # Reshape X to be a 2D array (necessary for scikit-learn's `fit`
@@ -116,8 +128,11 @@ class DBMS(LatencyPredictor):
         '''
         ret = []
         for plan in plans:
-            # ret.append(np.mean(qtimes[plan.graph["qname"]]))
-            lt = plan.graph["lt_type"]
+            if self.granularity == "all":
+                lt = "all"
+            else:
+                lt = plan.graph["lt_type"]
+
             pdata = dict(plan.nodes(data=True))
             max_cost = max(subdict['TotalCost'] for subdict in
                     pdata.values())

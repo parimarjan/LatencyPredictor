@@ -3,7 +3,7 @@ import numpy as np
 import random
 import pdb
 from latency_predictor.utils import *
-#from torch_geometric.data import Data
+from torch_geometric.data import Data
 import torch
 import pickle
 
@@ -103,6 +103,12 @@ class Featurizer():
                     self.num_features += 1
 
                 elif len(v) < self.cfg["max_set_len"]:
+                    if not self.feat_onehot:
+                        print("skipping features {}, because categorical"\
+                                .format(k))
+                        del self.idx_starts[k]
+                        continue
+
                     if len(v) < self.cfg["num_bins"]:
                         print(k, ": one-hot using bins")
                         num_vals = len(v)
@@ -160,8 +166,8 @@ class Featurizer():
                     pickle.dump(sys_norms, handle)
                 print("normalizers saved at: ", fn)
 
-        for k,v in sys_norms.items():
-            print(k, " mean: ", round(v[0], 2), ", std: ", round(v[1], 2))
+        # for k,v in sys_norms.items():
+            # print(k, " mean: ", round(v[0], 2), ", std: ", round(v[1], 2))
         # pdb.set_trace()
 
         self.sys_norms = sys_norms
@@ -208,6 +214,9 @@ class Featurizer():
         for key in keys:
             if not is_float(min(df[key])):
                 continue
+            if key == "timestamp":
+                continue
+
             assert key not in self.idx_starts
             newkeys.append(key)
         newkeys.sort()
@@ -232,7 +241,7 @@ class Featurizer():
                 else:
                     sys_normalization[key] = (np.mean(df[key].values),
                             np.std(df[key].values))
-                    print(sys_normalization[key])
+                    # print(sys_normalization[key])
                     if np.isnan(np.mean(df[key].values)):
                         pdb.set_trace()
             else:
@@ -260,6 +269,8 @@ class Featurizer():
 
     def handle_key(self, key, v, feature):
         if key not in self.idx_starts:
+            return
+        if key not in self.idx_types:
             return
 
         if self.idx_types[key] == "one-hot":
@@ -380,8 +391,6 @@ class Featurizer():
         for node in nodes:
             x.append(self._featurize_node(G, node))
 
-        # going to reverse all direction of edges, as costs should be computed
-        # going into the Top root node
         edge_idxs = [[],[]]
         for edge in G.edges():
             edge_idxs[0].append(node_dict[edge[1]])
