@@ -19,10 +19,21 @@ from io import StringIO
 import torch
 from torch.autograd import Variable
 
-# MIN_EST = 0.0001
+# MIN_EST = 0.1
 MIN_EST = 1.0
 
-USE_TEST_INSTANCES = False
+ALL_INSTANCES = ['a1_large_gp3_4g',
+ 'c5a_large_mag_4g',
+ 'c7g_large_mag_4g',
+ 'm6a_large_mag_8g',
+ 'r6a_large_mag_16g',
+ 'r7g_large_gp2_16g',
+ 't3_large_gp2_8g',
+ 't3_xlarge_gp2_16g',
+ 't3a_medium_gp3_4g',
+ 't4g_large_mag_8g']
+
+USE_TEST_INSTANCES = True
 TEST_INSTANCE_TYPES = ["a1_large_gp3_4g", "r7g_large_gp2_16g",
         "t3a_medium_gp3_4g",
         "m6a_large_mag_8g",
@@ -30,6 +41,10 @@ TEST_INSTANCE_TYPES = ["a1_large_gp3_4g", "r7g_large_gp2_16g",
         "c7g_large_mag_4g",
         "t3_large_gp2_8g",
         ]
+
+RUNTIME_MASK = [0, 1,
+                0, 1,
+                1]
 
 def explain_to_nx(plan):
     def recurse(G, cur_plan, cur_key, cur_node):
@@ -322,27 +337,96 @@ def load_sys_logs(inp_dir):
     return curdf
 
 def get_plans(df):
+    '''
+    We want plans to be sorted by <instance, timestamp>.
+    '''
+    import pickle
+    FN = "baselines/linear_models.pkl"
+    if os.path.exists(FN):
+        with open(FN, "rb") as file:
+            loaded_models = pickle.load(file)
+    else:
+        loaded_models = None
+
     plans = []
-    for i,row in df.iterrows():
-        exp = row["exp_analyze"]
-        try:
-            plan = eval(str(exp))
-        except Exception as e:
-            # print(e)
-            continue
+    instances = set(df["instance"])
+    for instance in instances:
+        tmp = df[df["instance"] == instance]
+        tmp = tmp.sort_values(by="start_time", ascending=True)
+        for i,row in tmp.iterrows():
+            exp = row["exp_analyze"]
+            try:
+                plan = eval(str(exp))
+            except Exception as e:
+                # print(e)
+                continue
 
-        G = explain_to_nx(plan[0][0][0])
+            G = explain_to_nx(plan[0][0][0])
 
-        # global properties about plan
-        G.graph["start_time"] = row["start_time"]
-        G.graph["latency"] = row["runtime"]
-        G.graph["tag"] = row["tag"]
-        G.graph["qname"] = row["qname"]
-        G.graph["instance"] = row["instance"]
-        G.graph["lt_type"] = row["lt_type"]
-        G.graph["bk_kind"] = row["bk_kind"]
+            # global properties about plan
+            G.graph["start_time"] = row["start_time"]
+            G.graph["latency"] = row["runtime"]
+            G.graph["tag"] = row["tag"]
+            G.graph["qname"] = row["qname"]
+            G.graph["instance"] = row["instance"]
+            G.graph["lt_type"] = row["lt_type"]
+            G.graph["bk_kind"] = row["bk_kind"]
 
-        plans.append(G)
+            pdata = dict(G.nodes(data=True))
+            max_cost = max(subdict['TotalCost'] for subdict in
+                    pdata.values())
+
+            # G.graph["heuristic_cost"] = max_cost
+            ## to ignore the cost
+            G.graph["heuristic_cost"] = 1.0
+
+            if loaded_models is not None and \
+                    row["lt_type"] in loaded_models:
+                model = loaded_models[row["lt_type"]]
+                X_reshaped = np.array([max_cost]).reshape(-1, 1)
+                prediction = model.predict(X_reshaped)
+                G.graph["heuristic_pred"] = prediction[0]
+            else:
+                assert False
+                print("no model for: ", row["lt_type"])
+                G.graph["heuristic_pred"] = 0.0
+
+            # 1d rep
+            pdata = dict(G.nodes(data=True))
+            actual_card = sum(subdict['ActualRows'] for subdict in
+                    pdata.values())
+            est_card = sum(subdict['PlanRows'] for subdict in
+                    pdata.values())
+            actual_time = max(subdict['ActualTotalTime'] for subdict in
+                    pdata.values())
+            est_cost = max(subdict['TotalCost'] for subdict in
+                    pdata.values())
+            pred_time = G.graph["heuristic_pred"]
+
+            G.graph["runtime_feats"] = [actual_card, est_card,
+                                    actual_time, pred_time,
+                                    est_cost]
+            plans.append(G)
+
+    # for i,row in df.iterrows():
+        # exp = row["exp_analyze"]
+        # try:
+            # plan = eval(str(exp))
+        # except Exception as e:
+            # # print(e)
+            # continue
+
+        # G = explain_to_nx(plan[0][0][0])
+
+        # # global properties about plan
+        # G.graph["start_time"] = row["start_time"]
+        # G.graph["latency"] = row["runtime"]
+        # G.graph["tag"] = row["tag"]
+        # G.graph["qname"] = row["qname"]
+        # G.graph["instance"] = row["instance"]
+        # G.graph["lt_type"] = row["lt_type"]
+        # G.graph["bk_kind"] = row["bk_kind"]
+        # plans.append(G)
 
     return plans
 

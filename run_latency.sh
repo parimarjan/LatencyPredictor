@@ -1,51 +1,55 @@
 CONFIG_DIR=$1
 LR=$2
 DECAY=$3
+INSTANCES=$4
+#TAG=final2-min-01
+TAG=final2-fixed_instances-min-1
+#TAG=final-imdb-fixed_instances-min-1
 
 ARCH=gcn
 
-python3 main.py --config ${CONFIG_DIR} --num_instances 1 --wandb_tags final1 \
-  --seed 1 --eval_epoch 5 --num_epochs 100 --arch $ARCH --lr $LR --weight_decay $DECAY &
-python3 main.py --config ${CONFIG_DIR} --num_instances 1 --wandb_tags final1 \
-  --seed 2 --eval_epoch 5 --num_epochs 100 --arch $ARCH --lr $LR --weight_decay $DECAY &
-python3 main.py --config ${CONFIG_DIR} --num_instances 1 --wandb_tags final1 \
-  --seed 3 --eval_epoch 5 --num_epochs 100 --arch $ARCH --lr $LR --weight_decay $DECAY &
-python3 main.py --config ${CONFIG_DIR} --num_instances 1 --wandb_tags final1 \
-  --seed 4 --eval_epoch 5 --num_epochs 100 --arch $ARCH --lr $LR --weight_decay $DECAY &
-python3 main.py --config ${CONFIG_DIR} --num_instances 1 --wandb_tags final1 \
-  --seed 5 --eval_epoch 5 --num_epochs 100 --arch $ARCH --lr $LR --weight_decay $DECAY &
-
+## pretrained + latent
 ARCH2=factorized
-python3 main.py --config ${CONFIG_DIR} --num_instances 1 --wandb_tags final1 \
-  --seed 1 --eval_epoch 5 --num_epochs 100 --arch $ARCH2 --lr $LR --weight_decay $DECAY &
-python3 main.py --config ${CONFIG_DIR} --num_instances 1 --wandb_tags final1 \
-  --seed 2 --eval_epoch 5 --num_epochs 100 --arch $ARCH2 --lr $LR --weight_decay $DECAY &
-python3 main.py --config ${CONFIG_DIR} --num_instances 1 --wandb_tags final1 \
-  --seed 3 --eval_epoch 5 --num_epochs 100 --arch $ARCH2 --lr $LR --weight_decay $DECAY &
-python3 main.py --config ${CONFIG_DIR} --num_instances 1 --wandb_tags final1 \
-  --seed 4 --eval_epoch 5 --num_epochs 100 --arch $ARCH2 --lr $LR --weight_decay $DECAY &
-python3 main.py --config ${CONFIG_DIR} --num_instances 1 --wandb_tags final1 \
-  --seed 5 --eval_epoch 5 --num_epochs 100 --arch $ARCH2 --lr $LR --weight_decay $DECAY
 
-#python3 main.py --config ${CONFIG_DIR} --num_instances 2 \
-  #--seed 1 --eval_epoch 50 --num_epochs 100 &
-#python3 main.py --config ${CONFIG_DIR} --num_instances 2 \
-  #--seed 2 --eval_epoch 50 --num_epochs 100 &
-#python3 main.py --config ${CONFIG_DIR} --num_instances 2 \
-  #--seed 3 --eval_epoch 50 --num_epochs 100 &
+#python3 main.py --config ${CONFIG_DIR} --num_instances $INSTANCES --wandb_tags $TAG \
+  #--seed 1 --eval_epoch 1000 --num_epochs 75 --arch $ARCH --lr $LR --weight_decay $DECAY &
+#python3 main.py --config ${CONFIG_DIR} --num_instances $INSTANCES --wandb_tags $TAG \
+  #--seed 2 --eval_epoch 1000 --num_epochs 75 --arch $ARCH --lr $LR --weight_decay $DECAY &
+#python3 main.py --config ${CONFIG_DIR} --num_instances $INSTANCES --wandb_tags $TAG \
+  #--seed 3 --eval_epoch 1000 --num_epochs 75 --arch $ARCH --lr $LR --weight_decay $DECAY &
 
-#python3 main.py --config ${CONFIG_DIR} --num_instances 3 \
-  #--seed 1 --eval_epoch 50 --num_epochs 100 &
-#python3 main.py --config ${CONFIG_DIR} --num_instances 3 \
-  #--seed 2 --eval_epoch 50 --num_epochs 100 &
-#python3 main.py --config ${CONFIG_DIR} --num_instances 3 \
-  #--seed 3 --eval_epoch 50 --num_epochs 100 &
+## no pretrain, no latent
+python3 main.py --config ${CONFIG_DIR} --num_instances $INSTANCES --wandb_tags $TAG \
+  --seed 1 --eval_epoch 1000 --num_epochs 75 --arch $ARCH2 --lr $LR \
+  --weight_decay $DECAY --sys_net_pretrained 0 --factorized_net_pretrained 0 &
+python3 main.py --config ${CONFIG_DIR} --num_instances $INSTANCES --wandb_tags $TAG \
+  --seed 2 --eval_epoch 1000 --num_epochs 75 --arch $ARCH2 --lr $LR \
+  --weight_decay $DECAY --sys_net_pretrained 0 --factorized_net_pretrained 0 &
+python3 main.py --config ${CONFIG_DIR} --num_instances $INSTANCES --wandb_tags $TAG \
+  --seed 3 --eval_epoch 1000 --num_epochs 75 --arch $ARCH2 --lr $LR \
+  --weight_decay $DECAY --sys_net_pretrained 0 --factorized_net_pretrained 0 &
 
-#python3 main.py --config ${CONFIG_DIR} --num_instances 4 \
-  #--seed 1 --eval_epoch 50 --num_epochs 100 &
-#python3 main.py --config ${CONFIG_DIR} --num_instances 4 \
-  #--seed 2 --eval_epoch 50 --num_epochs 100 &
-#python3 main.py --config ${CONFIG_DIR} --num_instances 4 \
-  #--seed 3 --eval_epoch 50 --num_epochs 100
+## only pretrained
+python3 main.py --config ${CONFIG_DIR} --num_instances $INSTANCES --wandb_tags $TAG \
+  --seed 1 --eval_epoch 1000 --num_epochs 75 --arch $ARCH2 --lr $LR \
+  --weight_decay $DECAY --latent_inference 0 &
+python3 main.py --config ${CONFIG_DIR} --num_instances $INSTANCES --wandb_tags $TAG \
+  --seed 2 --eval_epoch 1000 --num_epochs 75 --arch $ARCH2 --lr $LR \
+  --latent_inference 0 --weight_decay $DECAY &
+python3 main.py --config ${CONFIG_DIR} --num_instances $INSTANCES --wandb_tags $TAG \
+  --seed 3 --eval_epoch 1000 --num_epochs 75 --arch $ARCH2 --lr $LR \
+  --latent_inference 0 --weight_decay $DECAY &
 
-sleep 1000
+python3 main.py --config ${CONFIG_DIR} --num_instances $INSTANCES --wandb_tags $TAG \
+  --seed 1 --eval_epoch 1000 --num_epochs 75 --arch $ARCH2 --lr $LR \
+  --weight_decay $DECAY --latent_inference 1 &
+
+python3 main.py --config ${CONFIG_DIR} --num_instances $INSTANCES --wandb_tags $TAG \
+  --seed 2 --eval_epoch 1000 --num_epochs 75 --arch $ARCH2 --lr $LR \
+  --weight_decay $DECAY --latent_inference 1 &
+
+python3 main.py --config ${CONFIG_DIR} --num_instances $INSTANCES --wandb_tags $TAG \
+  --seed 3 --eval_epoch 1000 --num_epochs 75 --arch $ARCH2 --lr $LR \
+  --weight_decay $DECAY --latent_inference 1
+
+#sleep 1000

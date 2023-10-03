@@ -11,6 +11,79 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 MAX_LOG_LEN=30
 
+class LatencyConverterDataset(data.Dataset):
+    def __init__(self, plans,
+            syslogs,
+            featurizer,
+            sys_log_feats,
+            subplan_ests=False,
+            ):
+        for k, val in sys_log_feats.items():
+            self.__setattr__(k, val)
+
+        if sys_log_feats["arch"] == "mlp":
+            self.log_avg = True
+        else:
+            self.log_avg = False
+
+        self.subplan_ests = subplan_ests
+        self.featurizer = featurizer
+
+        print("node feature length: {}, global_features: {}".format(
+            featurizer.num_features, featurizer.num_global_features))
+
+        self.data = self._get_pair_features(plans, syslogs,
+                featurizer)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        '''
+        '''
+        return self.data[index]
+
+    def _get_pair_features(self, plans, sys_logs, featurizer):
+        data = []
+        skip = 0
+
+        for plan1 in plans:
+            cur_logs = sys_logs[plan1.graph["tag"]][plan1.graph["instance"]]
+
+            prev_logs = extract_previous_logs(cur_logs, plan1.graph["start_time"],
+                                    self.log_prev_secs,
+                                    self.log_skip,
+                                    MAX_LOG_LEN,
+                                    )
+
+            if len(prev_logs) == 0:
+                skip += 1
+                continue
+
+            logf = featurizer.get_log_features(prev_logs,
+                                            self.log_avg)
+
+            for plan2 in plans:
+                cur_logs2 = sys_logs[plan2.graph["tag"]][plan2.graph["instance"]]
+
+                prev_logs2 = extract_previous_logs(cur_logs2, plan2.graph["start_time"],
+                                        self.log_prev_secs,
+                                        self.log_skip,
+                                        MAX_LOG_LEN,
+                                        )
+
+                if len(prev_logs2) == 0:
+                    skip += 1
+                    continue
+
+                logf2 = featurizer.get_log_features(prev_logs2,
+                                                self.log_avg)
+
+
+            data.append(logf, logf2)
+
+        return data
+
 class QueryPlanDataset(data.Dataset):
     def __init__(self, plans,
             syslogs,
@@ -45,12 +118,12 @@ class QueryPlanDataset(data.Dataset):
     def _get_features(self, plans, sys_logs, featurizer):
         data = []
         skip = 0
-        for G in plans:
+
+        for gi, G in enumerate(plans):
             if self.subplan_ests:
                 assert False
 
             lat = G.graph["latency"]
-
             lat = featurizer.normalizeY(lat)
             curx = {}
             curx["y"] = lat
@@ -80,6 +153,7 @@ class QueryPlanDataset(data.Dataset):
 
             logf = featurizer.get_log_features(prev_logs,
                                             self.log_avg)
+
             if logf.shape[0] < MAX_LOG_LEN:
                 continue
 
@@ -111,14 +185,20 @@ class QueryPlanDataset(data.Dataset):
             curx["graph"] = curfeats
             curx["sys_logs"] = logf
 
+            hfeats = featurizer.get_heuristic_feats(G)
+            curx["heuristic_feats"] = hfeats
+
+            hist = featurizer.get_history_features(G, gi, plans)
+            curx["history"] = hist
+
             info = {}
             info["instance"] = G.graph["instance"]
             info["lt_type"] = G.graph["lt_type"]
             info["latency"] = G.graph["latency"]
             info["qname"] = G.graph["qname"]
             info["bk_kind"] = G.graph["bk_kind"]
-
             curx["info"] = info
+
             data.append(curx)
 
         print("Skipped {} plans because sys logs missing".format(skip))

@@ -8,6 +8,10 @@ seed : 1
 max_set_len : 100
 num_bins : 25
 
+latent_variable: 0
+num_latents: 128
+latent_inference: 0
+
 traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
 #traindata_dir : "LatencyCollectorResults/new"
 
@@ -43,6 +47,9 @@ eval_dirs : "LatencyCollectorResults/new"
 #eval_tags : "exp1_single"
 eval_tags : "exp1_single,exp2_single"
 
+latent_variable: 1
+num_latents: 128
+
 dataset:
   input_train: ''
   input_test: ''
@@ -54,6 +61,19 @@ plan_net:
   num_conv_layers: 8
   subplan_ests: 0
   dropout : 0.2
+  pretrained: 0
+
+hist_net:
+  # mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  save_weights: 1
+
+  max_pool: 1
+  hl: 512
+  num_layers: 4
+  num_heads: 16
+  dropout: 0.2
 
 sys_net:
   # avg/ mlp / transformer
@@ -66,7 +86,7 @@ sys_net:
   dropout: 0.2
 
   hl: 512
-  num_layers: 2
+  num_layers: 4
   num_heads: 16
   log_prev_secs: 600
   log_skip: 2
@@ -81,4 +101,6 @@ factorized_net:
   hl: 256
   num_layers: 2
   dropout: 0.0
+  heuristic_feats: 0
+
 ...

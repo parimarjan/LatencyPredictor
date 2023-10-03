@@ -11,9 +11,14 @@ seed : 1
 max_set_len : 1000
 num_bins : 100
 
+latent_variable: 1
+latent_inference: 1
+num_latents: 128
+
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/background"
-tags: "exp2_stack"
+tags: "exp2_stack,exp3_stack_multi1"
+
 #tags: "exp3_stack_multi1"
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
@@ -30,16 +35,19 @@ plan_net:
   num_conv_layers: 8
   subplan_ests: 0
   dropout : 0.2
+  pretrained: 0
+
 sys_net:
   arch: "transformer"
   pretrained : 1
   use_pretrained_norms: 1
   save_weights: 0
   max_pool: 1
+  dropout: 0.2
 
   #pretrained_fn: "models2/noimdb_128_filters_actual_fixed.wt"
   #pretrained_fn: "models2/noimdb2_attention.wt"
-  pretrained_fn: "models2/bg_imdball_attention.wt"
+  #pretrained_fn: "models2/bg_imdball_attention.wt"
 
   #pretrained_fn: "models2/all_attention.wt"
   #pretrained_fn: "models2/all_attention_bins50.wt"
@@ -59,16 +67,15 @@ sys_net:
   log_prev_secs: 600
   log_skip: 2
 
-factorized_net:
-  arch: "attention" # dot product
-  embedding_size: 128
-  #arch: "dot"
-  #embedding_size: 32
+  ### latent models
+  pretrained_fn: "models3/latent_nostack_ae2.wt"
 
-  num_layers: 1
+factorized_net:
+  #arch: "attention" # dot product
+  arch: "mlp"
+  embedding_size: 128
+  num_layers: 2
   pretrained: 1
   hl: 256
-
-  #arch: "mlp" # dot product
-  #num_layers: 2
+  dropout: 0.2
 ...

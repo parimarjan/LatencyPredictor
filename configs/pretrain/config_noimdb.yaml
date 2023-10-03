@@ -4,16 +4,24 @@ split_kind : "query" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
-ignore_node_feats: "Alias,Filter"
+#ignore_node_feats: "Alias,Filter"
+ignore_node_feats: ""
 
 max_set_len : 50000
-num_bins : 5000
+num_bins : 500
+
+latent_variable: 1
+num_latents: 128
+latent_inference: 0
 
 traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
 
-tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
+#tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
 
-#tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs,exp1_single,exp2_single,exp3_single"
+#tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
+
+tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch"
+#tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch,exp7_single_ceb2"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
@@ -24,7 +32,7 @@ common:
 plan_net:
   arch: "gcn"
   hl: 512
-  num_conv_layers: 8
+  num_conv_layers: 4
   subplan_ests: 0
   dropout : 0.2
   pretrained: 0
@@ -44,11 +52,28 @@ sys_net:
 
   #pretrained_fn: "models3/noimdb_128_ae_include-exp1.wt"
 
-  pretrained_fn: "models3/noimdb_log.wt"
+  #pretrained_fn: "models3/noimdb_log.wt"
+
+  # latent
+  #pretrained_fn: "models3/latent_noimdb.wt"
+  #pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch2.wt"
+
+  #pretrained_fn: "models3/latent_stack-ergast-tpch-ceb2.wt"
+
+  #pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch-log2.wt"
+
+  # latent + heuristic
+  #pretrained_fn: "models3/heuristic_latent_noimdb.wt"
+
+  # latent debug
+  #pretrained_fn: "models3/latent_stack-ergast-tpch-fact0.wt"
+
+  #pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch-fact0.wt"
+  pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch.wt"
 
   max_pool: 1
   hl: 512
-  num_layers: 8
+  num_layers: 2
   num_heads: 16
   log_prev_secs: 600
   log_skip: 2
@@ -62,4 +87,5 @@ factorized_net:
   hl: 256
   num_layers: 2
   dropout: 0.2
+  heuristic_feats: 1
 ...

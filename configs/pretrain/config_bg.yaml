@@ -6,12 +6,20 @@ num_instances : -1
 seed : 1
 ignore_node_feats: "Alias,Filter"
 
+latent_variable: 1
+num_latents: 128
+latent_inference: 0
+
 #max_set_len : 50000
 #num_bins : 5000
 #num_bins : 1000
 
 max_set_len : 100
 num_bins : 50
+
+latent_variable: 1
+latent_inference: 0
+num_latents: 128
 
 #gpu: 0
 #traindata_dir : "LatencyCollectorResults/background,LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
@@ -38,33 +46,26 @@ plan_net:
   num_conv_layers: 8
   subplan_ests: 0
   dropout : 0.2
+
+hist_net:
+  # mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  save_weights: 1
+
+  max_pool: 1
+  hl: 512
+  num_layers: 4
+  num_heads: 16
+  dropout: 0.2
+
 sys_net:
   # mlp / transformer
   arch: "transformer"
   pretrained : 0
   save_weights: 1
-  #pretrained_fn: "models2/bg_imdball_attention.wt"
-  #pretrained_fn: "models2/bg_imdball_mlp.wt"
-  #pretrained_fn: "models2/single_noimdbwk_bg_stack_attention.wt"
-  #pretrained_fn: "models2/bg_exp2_exp5.wt"
-  #pretrained_fn: "models2/bg_debug2.wt"
-  #pretrained_fn: "models2/allbg_debug.wt"
-  #pretrained_fn: "models2/bg_stack_attention_fact4.wt"
-  #pretrained_fn: "models2/bg_stack_attention_small.wt"
-  #pretrained_fn: "models2/bg_stack_attention_larger.wt"
-  #pretrained_fn: "models2/bg_stack_ceb2_attention.wt"
-  #pretrained_fn: "models2/all_noimdbwk_attention.wt"
-  #pretrained_fn: "models2/all_attention.wt"
-  #pretrained_fn: "models2/all_attention_100bins.wt"
 
-  #pretrained_fn: "models2/bg_multi4.wt"
-  #pretrained_fn: "models2/bg_multi4_stack1p.wt"
-  #pretrained_fn: "models2/bg_multi4_imdb2p.wt"
-
-  #pretrained_fn: "models3/bg_noimdb_ae2.wt"
-
-  ## new ones
-  pretrained_fn: "models3/new_bg_noimdb_ae.wt"
+  pretrained_fn: "models3/bg_noimdb.wt"
 
   max_pool: 1
   hl: 512
@@ -83,4 +84,5 @@ factorized_net:
   hl: 256
   num_layers: 2
   dropout: 0.2
+  heuristic_feats: 1
 ...

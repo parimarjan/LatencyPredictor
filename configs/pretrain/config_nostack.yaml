@@ -4,15 +4,20 @@ split_kind : "query" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
-ignore_node_feats: "Alias,Filter"
+#ignore_node_feats: "Alias,Filter"
+ignore_node_feats: "Alias"
 
-#max_set_len : 50000
-#num_bins : 5000
-max_set_len : 100
-num_bins : 25
+max_set_len : 50000
+num_bins : 100
+
+latent_variable: 1
+num_latents: 128
+latent_inference: 0
 
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
+
+#tags: "exp1_single"
 
 tags: "exp1_single,exp2_single,exp3_single,exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
 
@@ -30,6 +35,19 @@ plan_net:
   num_conv_layers: 8
   subplan_ests: 0
   dropout : 0.2
+
+hist_net:
+  # mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  save_weights: 1
+
+  max_pool: 1
+  hl: 32
+  num_layers: 4
+  num_heads: 16
+  dropout: 0.2
+
 sys_net:
   # mlp / transformer
   arch: "transformer"
@@ -44,7 +62,16 @@ sys_net:
 
   #pretrained_fn: "models3/new_nostack_ae.wt"
 
-  pretrained_fn: "models3/nocat_nostack_ae.wt"
+  #pretrained_fn: "models3/latent_nostack_ae2.wt"
+
+  ## heuristic + latents
+
+  #pretrained_fn: "models3/heuristic_latent_nostack2.wt"
+  #pretrained_fn: "models3/heuristic_latent_nostack.wt"
+
+  #pretrained_fn: "models3/hist_latent_heur_nostack.wt"
+
+  pretrained_fn: "models3/hist_latent_heur_nostack_ystd.wt"
 
   max_pool: 1
   hl: 512
@@ -61,4 +88,5 @@ factorized_net:
   hl: 256
   num_layers: 2
   dropout: 0.2
+  heuristic_feats: 1
 ...

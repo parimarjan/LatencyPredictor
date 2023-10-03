@@ -1,6 +1,8 @@
 %YAML 1.2
 ---
-split_kind : "instances" # instances,query,...;
+#split_kind : "instances" # instances,query,...;
+split_kind : "lt_type" # instances,query,...;
+
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
@@ -15,12 +17,12 @@ traindata_dir : "LatencyCollectorResults/new"
 ###tags: "exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
 
 ### different splits here
-tags: "exp1_single,exp2_single,exp3_single"
+#tags: "exp1_single,exp2_single,exp3_single"
 #tags: "exp2_stack"
 #tags: "exp10_single_zdbs"
 #tags: "exp1"
 #tags: "exp1"
-#tags: "exp8_single_stack"
+tags: "exp8_single_stack"
 #tags: "exp2_stack"
 
 use_eval_tags : 0

@@ -6,6 +6,7 @@ import numpy as np
 from collections import defaultdict
 import pdb
 from sklearn.linear_model import LinearRegression
+import pickle
 from sklearn.metrics import mean_squared_error,mean_absolute_error
 
 class LatencyPredictor():
@@ -78,10 +79,12 @@ class DBMS(LatencyPredictor):
         self.linear_models = {}
         costs = defaultdict(list)
         latencies = defaultdict(list)
+        tags = set()
 
         for plan in train_plans:
             # if plan.graph["bk_kind"] != "None":
                 # continue
+            tags.add(plan.graph["tag"])
 
             latency = plan.graph["latency"]
             instance = plan.graph["lt_type"]
@@ -123,6 +126,10 @@ class DBMS(LatencyPredictor):
 
             self.linear_models[lt] = model
 
+        # Assuming the class method context where `self.linear_models` exists:
+        # with open("baselines/linear_models.pkl", "wb") as file:
+            # pickle.dump(self.linear_models, file)
+
     def test(self, plans, sys_logs, **kwargs):
         '''
         '''
@@ -136,8 +143,8 @@ class DBMS(LatencyPredictor):
             pdata = dict(plan.nodes(data=True))
             max_cost = max(subdict['TotalCost'] for subdict in
                     pdata.values())
-            model = self.linear_models[lt]
 
+            model = self.linear_models[lt]
             X_reshaped = np.array([max_cost]).reshape(-1, 1)
             prediction = model.predict(X_reshaped)
             ret.append(prediction[0])

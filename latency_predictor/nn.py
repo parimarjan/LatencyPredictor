@@ -41,6 +41,22 @@ def percentile_help(q):
         return np.percentile(arr, q)
     return f
 
+def set_and_store_grad_state(model, exception_module_name="Z"):
+    original_grad_states = {}
+    for name, param in model.named_parameters():
+        # Store the original requires_grad state
+        original_grad_states[name] = param.requires_grad
+        # If the current parameter is not the exception, set its requires_grad to False
+        if not name.endswith(exception_module_name):
+            param.requires_grad = False
+        else:
+            param.requires_grad = True
+    return original_grad_states
+
+def restore_grad_state(model, original_grad_states):
+    for name, param in model.named_parameters():
+        param.requires_grad = original_grad_states[name]
+
 def collate_fn_gcn(Z):
     # return torch_geometric.data.Batch.from_data_list(Z).to(device)
     return torch_geometric.data.Batch.from_data_list(Z)
@@ -53,6 +69,8 @@ def collate_fn_gcn2(X):
     Ys = []
     infos = []
     S = []
+    heuristic_feats = []
+    hists = []
 
     ret = {}
     ret["sys_logs"] = torch.zeros(len(X), X[0]["sys_logs"].shape[0],
@@ -62,8 +80,11 @@ def collate_fn_gcn2(X):
         x = curx["sys_logs"]
         infos.append(curx["info"])
         Ys.append(curx["y"])
-        # ret["sys_logs"][ci] = x
-        # continue
+
+        if "heuristic_feats" in curx:
+            heuristic_feats.append(curx["heuristic_feats"])
+        if "history" in curx:
+            hists.append(curx["history"])
 
         if len(x.shape) == 1:
             S.append(x)
@@ -94,6 +115,9 @@ def collate_fn_gcn2(X):
 
     ret["info"] = infos
     ret["y"] = torch.tensor(Ys, dtype=torch.float)
+
+    ret["heuristic_feats"] = torch.stack(heuristic_feats)
+    ret["history"] = torch.stack(hists)
 
     return ret
 
@@ -185,11 +209,26 @@ class NN(LatencyPredictor):
             self.net = TransformerLogs(
                     self.featurizer.num_syslog_features,
                     1, 4,
-                    self.cfg["sys_net"]["num_layers"],
+                    self.cfg["sys_net"]["hl"],
                     self.cfg["sys_net"]["num_heads"],
                     int(self.cfg["sys_net"]["log_prev_secs"] / 10),
                     self.cfg["sys_net"]["max_pool"],
-                    self.layernorm)
+                    self.layernorm,
+                    self.cfg["hist_net"]["dropout"],
+                    )
+        elif self.arch == "transformerhistory":
+            self.net = TransformerLogs(
+                    5, 1,
+                    self.cfg["hist_net"]["num_layers"],
+                    self.cfg["hist_net"]["hl"],
+                    self.cfg["hist_net"]["num_heads"],
+                    NUM_HIST,
+                    self.cfg["hist_net"]["max_pool"],
+                    self.layernorm,
+                    self.cfg["hist_net"]["dropout"],
+                    data_field="history",
+                    )
+
         elif self.arch == "factorized":
             if self.featurizer.sys_seq_kind == "rows":
                 self.net = FactorizedLatencyNet(self.cfg,
@@ -198,6 +237,7 @@ class NN(LatencyPredictor):
                         self.featurizer.num_syslog_features,
                         MAX_LOG_LEN,
                         self.layernorm,
+                        NUM_HIST,
                         )
             elif "col" in self.featurizer.sys_seq_kind:
                 self.net = FactorizedLatencyNet(self.cfg,
@@ -271,7 +311,6 @@ class NN(LatencyPredictor):
                 assert y.shape == yhat.shape
                 loss = self.loss_fn(yhat, y)
 
-
             self.optimizer.zero_grad()
             loss.backward()
 
@@ -287,17 +326,18 @@ class NN(LatencyPredictor):
 
         self.log(epoch_losses, "train_loss", "train")
 
-        if hasattr(self.net, "sys_net"):
+        if hasattr(self.net, "sys_net") and self.net.sys_net != None:
             exp_name = self.get_exp_name()
             rdir = os.path.join(self.result_dir, exp_name)
             if os.path.exists(rdir):
                 rfn = os.path.join(rdir, "env_net.wt")
                 torch.save(self.net.sys_net.state_dict(),
                         rfn)
-                print("saved sys net: ", rfn)
+                # print("saved sys net: ", rfn)
 
         if self.cfg["sys_net"]["save_weights"] and \
-                self.cfg["sys_net"]["arch"] == "transformer":
+                self.cfg["sys_net"]["arch"] == "transformer" and \
+                hasattr(self.net, "sys_net"):
             torch.save(self.net.sys_net.state_dict(),
                     self.cfg["sys_net"]["pretrained_fn"])
             print("saved sys net: ", self.cfg["sys_net"]["pretrained_fn"])
@@ -307,14 +347,28 @@ class NN(LatencyPredictor):
                                                                      "/fact_")
                 torch.save(self.net.fact_net.state_dict(),
                         fname)
-                print("saved fact net: ", fname)
+                # print("saved fact net: ", fname)
 
             if hasattr(self.net, "gcn_net"):
                 fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
                                                                      "/gcn_")
                 torch.save(self.net.gcn_net.state_dict(),
                         fname)
-                print("saved gcn net: ", fname)
+                # print("saved gcn net: ", fname)
+
+            if hasattr(self.net, "Z"):
+                fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
+                                                                     "/latent_")
+                torch.save(self.net.Z,
+                        fname)
+                # print("saved latent Z: ", fname)
+
+            if hasattr(self.net, "hist_net"):
+                fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
+                                                                     "/hist_")
+                torch.save(self.net.hist_net.state_dict(),
+                        fname)
+                print("saved hist net: ", fname)
 
     def log(self, losses, loss_type, samples_type):
         for i, func in enumerate(self.summary_funcs):
@@ -341,8 +395,10 @@ class NN(LatencyPredictor):
                     self.cfg["sys_net"],
                     subplan_ests=self.subplan_ests,
                     )
+
             dl = torch.utils.data.DataLoader(ds,
-                    batch_size=self.batch_size,
+                    # batch_size= self.batch_size,
+                    batch_size = 64,
                     shuffle=False,
                     collate_fn=self.collate_fn,
                     drop_last=True,
@@ -408,6 +464,9 @@ class NN(LatencyPredictor):
         self._init_net()
         print(self.net)
 
+        # for name, param in self.net.named_parameters():
+            # print(name, param.shape)
+
         if self.cfg["sys_net"]["pretrained"] and \
                 hasattr(self.net, "sys_net"):
             print("Going to use pretrained system model from: ",
@@ -415,7 +474,7 @@ class NN(LatencyPredictor):
 
             self.net.sys_net.load_state_dict(torch.load(
                     self.cfg["sys_net"]["pretrained_fn"],
-                    map_location="cpu",
+					map_location="cpu",
                     ))
 
             for parameter in self.net.sys_net.parameters():
@@ -437,6 +496,22 @@ class NN(LatencyPredictor):
                 for parameter in self.net.fact_net.parameters():
                     parameter.requires_grad = False
 
+            if hasattr(self.net, "hist_net") and \
+                    self.cfg["hist_net"]["pretrained"]:
+                fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
+                                                                     "/hist_")
+
+                print("Going to use pretrained hist net from: ",
+                        fname)
+                self.net.hist_net.load_state_dict(torch.load(
+                    fname,
+                    map_location="cpu",
+                    ))
+
+                if self.cfg["hist_net"]["pretrained"] == 1:
+                    for parameter in self.net.hist_net.parameters():
+                        parameter.requires_grad = False
+
             if self.cfg["plan_net"]["pretrained"]:
                 fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
                                                                      "/gcn_")
@@ -448,9 +523,27 @@ class NN(LatencyPredictor):
                     map_location="cpu",
                     ))
 
-                if self.cfg["plan_net"]["pretrained"] == 1:
+                if self.cfg["plan_net"]["pretrained"] == 2:
                     for parameter in self.net.gcn_net.parameters():
                         parameter.requires_grad = False
+
+
+            if self.cfg["latent_variable"] and \
+                    self.cfg["latent_inference"]:
+                fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
+                                                                     "/latent_")
+                print("Going to load latent Z from: ",
+                        fname)
+                self.net.Z = torch.load(
+                    fname,
+                    map_location="cpu",
+                    )
+                self.net.Z.requires_grad = False
+                self.net.Z = nn.Parameter(self.net.Z.to(device))
+
+        for name, param in self.net.named_parameters():
+            if param.requires_grad:
+                print(name)
 
         self.optimizer = torch.optim.AdamW(self.net.parameters(), lr=self.lr,
                 weight_decay=self.weight_decay)
@@ -485,9 +578,10 @@ class NN(LatencyPredictor):
                 print("saved sys net normalizers: ", rfn)
 
         for self.epoch in range(self.num_epochs):
-            if self.epoch % self.eval_epoch == 0 \
-                    and self.epoch != 0:
+            if self.epoch % self.eval_epoch == 0:
                 for st in self.eval_loaders.keys():
+                    # if st == "train":
+                        # continue
                     self.periodic_eval(st)
 
             self._train_one_epoch()
@@ -523,36 +617,120 @@ class NN(LatencyPredictor):
         trueys = []
         infos = []
 
-        with torch.no_grad():
-            for data in dl:
-                yhat = self.net(data)
-                # y = data.y
+        if self.cfg["latent_inference"] and \
+                    hasattr(self.net, "Z") and \
+                    self.cfg["factorized_net"]["pretrained"]:
+            print("going to do latent inference on preceding batches")
+            fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
+                                                                 "/latent_")
+            print("Going to load latent Z from: ",
+                    fname)
 
-                # y = data["graph"].y
-                y = data["y"]
-                if len(yhat.shape) > len(y.shape):
-                    yhat = yhat.squeeze()
+            self.net.Z = torch.load(
+                fname,
+                map_location="cpu",
+                )
+            self.net.Z = nn.Parameter(self.net.Z.to(device))
+            self.net.Z.requires_grad = True
 
-                # y = data.y
-                # y = y.item()
-                # trueys.append(self.featurizer.unnormalizeY(y))
+        # TODO: make sure the rest of the model has requires grad turned off
+        # to prevent memory usage
+        original_grad_states = set_and_store_grad_state(self.net,
+                exception_module_name="Z")
+        prev_instance = None
 
-                assert yhat.shape == y.shape
+        for di,data in enumerate(dl):
+            # print("Batch: {}, samples: {}".format(di,
+                # data["graph"].num_graphs))
 
+            cur_instance = data["info"][0]["instance"]
+            if cur_instance != prev_instance and \
+                    prev_instance is not None and \
+                    hasattr(self.net, "z") and \
+                    self.cfg["factorized_net"]["pretrained"]:
+                self.net.Z = torch.load(
+                    fname,
+                    map_location="cpu",
+                    )
+                self.net.Z = nn.Parameter(self.net.Z.to(device))
+                self.net.Z.requires_grad = True
+
+            prev_instance = cur_instance
+
+            yhat = self.net(data)
+            y = data["y"]
+            if len(yhat.shape) > len(y.shape):
+                yhat = yhat.squeeze()
+
+            assert yhat.shape == y.shape
+
+            for gi in range(data["graph"].num_graphs):
+                trueys.append(self.featurizer.unnormalizeY(y[gi].item()))
+                infos.append(data["info"][gi])
+
+            if self.subplan_ests:
+                assert False
+            else:
+                # yh = yhat.item()
+                # res.append(self.featurizer.unnormalizeY(yh))
                 for gi in range(data["graph"].num_graphs):
-                    trueys.append(self.featurizer.unnormalizeY(y[gi].item()))
-                    infos.append(data["info"][gi])
+                    res.append(self.featurizer.unnormalizeY(yhat[gi].item()))
 
-                if self.subplan_ests:
-                    assert False
-                else:
-                    # yh = yhat.item()
-                    # res.append(self.featurizer.unnormalizeY(yh))
-                    for gi in range(data["graph"].num_graphs):
-                        res.append(self.featurizer.unnormalizeY(yhat[gi].item()))
+            if self.cfg["latent_inference"] \
+                    and hasattr(self.net, "Z"):
+                # res, trueys are the preds, trainings; we want to train
+                # ONLY the self.Z part, from scratch, just on the current
+                # batch so we can use it on the next batch.
 
-        # self.net.train()
-        # self.net.gcn_net.train()
+                # Create a separate optimizer for self.Z
+                # Faster learning rate for Z
+                # z_optimizer = torch.optim.SGD([self.net.Z], lr=0.001)
+                # z_optimizer = torch.optim.Adam([self.net.Z], lr=0.001)
+                # z_optimizer = torch.optim.SGD([self.net.Z], lr=0.001)
+                z_optimizer = torch.optim.Adam([self.net.Z], lr=0.0001)
+                # criterion = nn.MSELoss()
+                criterion = qloss_torch
+
+                # Training loop
+                epochs = 100  # Number of times to update self.Z based on this batch
+                y = y.to(device)
+                for epoch in range(epochs):
+                    # Zero the parameter gradients
+                    z_optimizer.zero_grad()
+
+                    # Forward pass
+                    outputs = self.net(data)
+                    if len(outputs.shape) > len(y.shape):
+                        outputs = outputs.squeeze()
+
+                    loss = criterion(outputs, y)
+
+                    # Backward pass and optimization
+                    loss.backward()
+                    z_optimizer.step()
+
+                    # if epoch % 25 == 0:
+                        # print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}")
+
+        restore_grad_state(self.net, original_grad_states)
+
+        ## load the original Z back
+        if self.arch == "factorized" and \
+                    hasattr(self.net, "z") and \
+                    self.cfg["factorized_net"]["pretrained"]:
+            self.net.Z = torch.load(
+                fname,
+                map_location="cpu",
+                )
+            self.net.Z = nn.Parameter(self.net.Z.to(device))
+            self.net.Z.requires_grad = False
+
+        # print("min estimate: ", np.min(res))
+        # print("max estimate: ", np.max(res))
+
+        # Printing the formatted distribution in one line
+        print(f"Min: {np.min(res):.4f}, 25th Percentile: {np.percentile(res, 25):.4f}, Median: {np.median(res):.4f}, 75th Percentile: {np.percentile(res, 75):.4f}, Max: {np.max(res):.4f}")
+
         return res,trueys,infos
 
     def test(self, plans, sys_logs):
@@ -563,6 +741,7 @@ class NN(LatencyPredictor):
                 subplan_ests=self.subplan_ests)
         dl = torch.utils.data.DataLoader(ds,
                 batch_size=self.batch_size,
+                drop_last=True,
                 shuffle=False, collate_fn=self.collate_fn)
         ret,_,_ = self._eval_loader(ds, dl)
 

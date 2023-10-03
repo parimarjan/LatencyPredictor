@@ -6,6 +6,7 @@ import pdb
 
 from latency_predictor.transformer import RegressionTransformer
 from tst import Transformer
+from latency_predictor.featurizer import HEURISTIC_FEATS
 # from latency_predictor.dataset import MAX_LOG_LEN
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -21,6 +22,7 @@ class FactorizedLatencyNet(torch.nn.Module):
             num_sys_features,
             sys_seq_len,
             layernorm,
+            hist_len,
             subplan_ests=False,
             out_feats=1,
             final_act="none"):
@@ -70,29 +72,66 @@ class FactorizedLatencyNet(torch.nn.Module):
 
         elif cfg["sys_net"]["arch"] == "avg":
             self.sys_net = torch_avg
+        # else:
+            # self.sys_net = None
 
+        self.latent_variable = cfg["latent_variable"]
+        if cfg["latent_variable"]:
+            self.Z = nn.Parameter(torch.randn(1, cfg["num_latents"]))
+        else:
+            self.Z = None
+
+        if "hist_net" in cfg:
+            self.hist_net = TransformerLogs(
+                    5,
+                    cfg["factorized_net"]["embedding_size"],
+                    cfg["hist_net"]["num_layers"],
+                    cfg["hist_net"]["hl"],
+                    cfg["hist_net"]["num_heads"],
+                    hist_len,
+                    cfg["hist_net"]["max_pool"],
+                    layernorm,
+                    cfg["hist_net"]["dropout"],
+                    data_field="history",
+                    )
+            self.hist_net.to(device)
+
+        self.heuristic_feats = False
         if cfg["factorized_net"]["arch"] == "mlp":
-
             if cfg["sys_net"]["arch"] == "avg":
                 emb_size = cfg["factorized_net"]["embedding_size"] + \
                             num_sys_features
+            elif not hasattr(self, "sys_net"):
+                emb_size = cfg["factorized_net"]["embedding_size"]
             else:
                 emb_size = cfg["factorized_net"]["embedding_size"]*2
 
-            self.fact_net = SimpleRegression(
-                    emb_size,
-                    1, cfg["factorized_net"]["num_layers"],
-                    cfg["factorized_net"]["hl"],
-                    dropout=cfg["factorized_net"]["dropout"],
-                    )
+            if "hist_net" in cfg:
+                emb_size += cfg["factorized_net"]["embedding_size"]
+
+            if cfg["latent_variable"] == 1:
+                emb_size = emb_size + cfg["num_latents"]
+
+            if cfg["factorized_net"]["heuristic_feats"]:
+                emb_size += len(HEURISTIC_FEATS)
+                self.heuristic_feats = True
+                self.heuristic_do = nn.Dropout(p=0.2)
+                cfg["factorized_net"]["dropout"] = 0.0
+
+            if cfg["factorized_net"]["num_layers"] == 0:
+                self.fact_net = nn.Sequential(
+                    nn.Linear(emb_size, 1, bias=True),
+                ).to(device)
+            else:
+                self.fact_net = SimpleRegression(
+                        emb_size,
+                        1, cfg["factorized_net"]["num_layers"],
+                        cfg["factorized_net"]["hl"],
+                        dropout=cfg["factorized_net"]["dropout"],
+                        )
             self.fact_net.to(device)
 
         elif cfg["factorized_net"]["arch"] == "attention":
-            # self.fact_net = RegressionTransformer(
-                    # cfg["factorized_net"]["embedding_size"]*2,
-                    # 8, 1, 1, 1,
-                    # layernorm=True,
-                    # ).to(device)
             self.fact_net = AttentionFactNet(
                     cfg["factorized_net"]["embedding_size"]*2,
                     4, cfg["factorized_net"]["num_layers"],
@@ -113,17 +152,42 @@ class FactorizedLatencyNet(torch.nn.Module):
             pass
 
     def forward(self, data):
+        fact_inps = []
         xplan = self.gcn_net(data)
-        xsys = self.sys_net(data)
+        fact_inps.append(xplan.squeeze())
+        if hasattr(self, "sys_net") and self.sys_net != None:
+            xsys = self.sys_net(data)
+            fact_inps.append(xsys)
+
+        if hasattr(self, "hist_net"):
+            xhist = self.hist_net(data)
+
         if len(xplan.shape) == 1:
             xplan = xplan.unsqueeze(dim=1)
 
         if self.fact_arch == "mlp":
-            xplan = xplan.squeeze()
-            ## old, w/ batch = 1
-            # emb_out = torch.cat([xplan, xsys])
-            emb_out = torch.cat([xsys,xplan], axis=-1)
+            # xplan = xplan.squeeze()
+            # fact_inps = [xsys, xplan]
+            if hasattr(self, "hist_net"):
+                fact_inps.append(xhist)
+
+            if self.latent_variable:
+                batch_size = xplan.size(0)
+                assert batch_size != 1
+
+                # Repeat Z to match the batch size and concatenate it with x
+                z = self.Z.repeat(batch_size, 1)
+                fact_inps.append(z)
+
+            emb_out = torch.cat(fact_inps, axis=-1)
+
+            if self.heuristic_feats:
+                emb_out = self.heuristic_do(emb_out)
+                hfeats = data["heuristic_feats"].to(device)
+                emb_out = torch.cat([emb_out, hfeats], axis=-1)
+
             out = self.fact_net(emb_out)
+
         elif self.fact_arch == "attention":
             emb_out = torch.cat([xsys,xplan], axis=-1)
             emb_out = emb_out.unsqueeze(dim=1)
@@ -281,9 +345,11 @@ class TransformerLogs(torch.nn.Module):
             max_pool,
             layernorm,
             dropout,
+            data_field="sys_logs",
             ):
         super(TransformerLogs, self).__init__()
         # TODO: calculate this
+        self.data_field = data_field
         self.net = RegressionTransformer(input_width,
                 num_heads, num_hidden_layers, seq_len, n_output,
                 max_pool=max_pool,
@@ -292,7 +358,7 @@ class TransformerLogs(torch.nn.Module):
                 ).to(device)
 
     def forward(self, data):
-        x = data["sys_logs"]
+        x = data[self.data_field]
         x = x.to(device, non_blocking=True)
 
         if len(x.shape) == 2:

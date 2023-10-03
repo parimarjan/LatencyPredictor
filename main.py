@@ -4,6 +4,7 @@ import time
 import ntpath
 import os
 import pdb
+from collections import defaultdict
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -29,8 +30,10 @@ def split_workload(df, cfg):
         df = df[df["query_dir"].str.contains(args.skip_workload)]
         print("skipped workload: ", args.skip_workload)
 
-    print(len(df))
+    df = df[df["lt_type"].isin(ALL_INSTANCES)]
+
     split_kind = cfg.get("split_kind", "instance")
+
     # inum = cfg.get("instance_num", 1)
     inum = cfg["num_instances"]
 
@@ -78,6 +81,7 @@ def split_workload(df, cfg):
         instances = list(set(df["lt_type"]))
         instances.sort()
         print("All instances: ", instances)
+        # pdb.set_trace()
 
         if USE_TEST_INSTANCES:
             test_qinstances = TEST_INSTANCE_TYPES
@@ -102,7 +106,7 @@ def split_workload(df, cfg):
         train_df = df[~df["query_dir"].isin(test_qdir)]
         test_df = df[df["query_dir"].isin(test_qdir)]
 
-        if "test_instances" in split_kind:
+        if "test_instances" in split_kind or USE_TEST_INSTANCES:
             train_df = train_df[train_df["lt_type"].isin(TEST_INSTANCE_TYPES)]
             test_df = test_df[test_df["lt_type"].isin(TEST_INSTANCE_TYPES)]
 
@@ -188,13 +192,21 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
 
     ests = alg.test(plans, sys_logs)
     truey = [plan.graph["latency"] for plan in plans]
+
+    ## could be because of drop_last=True
+    if len(truey) > len(ests):
+        truey = truey[0:len(ests)]
+
     ests = np.array(ests)
     truey = np.array(truey)
 
     eval_time = round(time.time() - start, 2)
     print("evaluating alg {} took: {} seconds".format(alg_name, eval_time))
 
+
     for loss_func in loss_funcs:
+        lt_losses = defaultdict(list)
+
         lossarr = loss_func.eval(ests, truey,
                 args=args, samples_type=samples_type,
                 )
@@ -203,8 +215,16 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
         print("True: ", np.round(truey[worst_idx], 2))
         print("Ests: ", np.round(ests[worst_idx], 2))
 
+        for li, loss in enumerate(lossarr):
+            lt_type = plans[li].graph["lt_type"]
+            lt_losses[lt_type].append(loss)
+
+        for lt_type,vals in lt_losses.items():
+            print("{}, Mean Err: {}".format(lt_type, np.mean(vals)))
+
         rdir = os.path.join(args.result_dir, exp_name)
         make_dir(rdir)
+
         resfn = os.path.join(rdir, loss_func.__str__() + ".csv")
 
         loss_key = "Final-{}-{}-{}".format(str(loss_func),
@@ -216,6 +236,11 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
                                            samples_type,
                                            "median")
         wandb.run.summary[loss_median] = np.median(lossarr)
+
+        loss_key2 = "Final-{}-{}-{}".format(str(loss_func),
+                                           samples_type,
+                                           "90p")
+        wandb.run.summary[loss_key2] = np.percentile(lossarr, 90)
 
         loss_key2 = "Final-{}-{}-{}".format(str(loss_func),
                                            samples_type,
@@ -235,6 +260,16 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
 
 def read_flags():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--min_est", type=float,
+            required=False,
+            default=None, help="")
+
+    parser.add_argument("--latent_variable", type=int,
+            required=False,
+            default=None, help="")
+    parser.add_argument("--latent_inference", type=int,
+            required=False,
+            default=None, help="")
 
     parser.add_argument("--batch_size", type=int,
             required=False,
@@ -271,7 +306,7 @@ def read_flags():
     parser.add_argument("--sys_net_pretrained", type=int,
             required=False,
             default=None, help="")
-    parser.add_argument("--fact_net_pretrained", type=int,
+    parser.add_argument("--factorized_net_pretrained", type=int,
             required=False,
             default=None, help="")
 
@@ -363,11 +398,11 @@ def read_flags():
             default="nn")
 
     parser.add_argument("--eval_fns", type=str, required=False,
-            default="latency_mse,latency_qerr,latency_ae",
+            default="latency_relerr,latency_mse,latency_qerr,latency_ae",
             help="final evaluation functions used to evaluate training alg")
 
     parser.add_argument("--loss_fn_name", type=str, required=False,
-            default="ae")
+            default="mse")
 
     parser.add_argument("--arch", type=str, required=False,
             default="factorized", help="tcnn/gcn; architecture of trained neural net.")
@@ -419,13 +454,26 @@ def load_dfs(dirs, tags):
     return pd.concat(all_dfs), sys_logs
 
 def main():
-    global args,cfg
+    global args,cfg,MIN_EST
 
     with open(args.config) as f:
         cfg = yaml.safe_load(f.read())
 
     if "max_pool" not in cfg["sys_net"]:
         cfg["sys_net"]["max_pool"] = False
+
+    if "latent_variable" not in cfg:
+        cfg["latent_variable"] = 0
+        cfg["num_latents"] = 0
+
+    if "latent_inference" not in cfg:
+        cfg["latent_inference"] = 0
+
+    if "heuristic_feats" not in cfg["factorized_net"]:
+        cfg["factorized_net"]["heuristic_feats"] = 0
+
+    if args.min_est is not None:
+        MIN_EST = args.min_est
 
     wandbcfg = {}
     wandbcfg.update(vars(args))
@@ -461,6 +509,7 @@ def main():
     #df = df[df["runtime"] > 2.0]
 
     train_df, test_df = split_workload(df, cfg)
+
     train_plans = get_plans(train_df)
     test_plans = get_plans(test_df)
 
@@ -472,6 +521,10 @@ def main():
     if cfg["use_eval_tags"]:
         ## new envs
         df,sys_logs2 = load_dfs(cfg["eval_dirs"], cfg["eval_tags"])
+        if USE_TEST_INSTANCES:
+            test_lts = TEST_INSTANCE_TYPES
+            df = df[df["lt_type"].isin(test_lts)]
+
         sys_logs.update(sys_logs2)
 
         seendf = df[df["qname"].isin(train_qnames)]
@@ -494,6 +547,7 @@ New Env Unseen Plans: {}".format(
     elif args.feat_normalization_data == "all":
         feat_plans = train_plans + test_plans + new_env_seen_plans + new_env_unseen_plans
 
+    # featurizer = Featurizer(train_plans + new_env_unseen_plans,
     featurizer = Featurizer(train_plans,
                             sys_logs,
                             cfg,

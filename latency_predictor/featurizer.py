@@ -14,6 +14,11 @@ IGNORE_NODE_FEATS = ["Alias", "Filter"]
 ## RowsRemovedbyJoinFilter
 # MAX_SET_LEN = 50000
 
+            # G.graph["heuristic_cost"] = max_cost
+            # G.graph["heuristic_pred"] = max_cost
+HEURISTIC_FEATS = ["heuristic_cost", "heuristic_pred"]
+NUM_HIST = 30
+
 class Featurizer():
     def __init__(self,
             plans,
@@ -26,6 +31,8 @@ class Featurizer():
         self.kwargs = kwargs
         self.cfg = cfg
 
+        self.num_heuristic_feats = len(HEURISTIC_FEATS)
+
         for k, val in kwargs.items():
             self.__setattr__(k, val)
 
@@ -35,6 +42,9 @@ class Featurizer():
             self.ignore_node_feats = IGNORE_NODE_FEATS
 
         print("ignoring feats: ", self.ignore_node_feats)
+
+        if self.cfg["sys_net"]["pretrained_fn"] is not None:
+            assert ".wt" in self.cfg["sys_net"]["pretrained_fn"]
 
         self.normalization_stats = {}
         self.idx_starts = {}
@@ -55,8 +65,9 @@ class Featurizer():
             ## handling plan features / normalizations
             attrs = defaultdict(set)
             self._update_attrs(plans, attrs)
-            if self.y_normalizer != "none":
-                assert False
+
+            # if self.y_normalizer != "none":
+                # assert False
 
             # for graph features, each node will reserve spots for each of the
             # features
@@ -136,6 +147,79 @@ class Featurizer():
 
             print("Features based on: ", used_keys)
 
+        if cfg["sys_net"]["save_weights"]:
+            pfn = self.cfg["sys_net"]["pretrained_fn"]
+            pfn = pfn.replace(".wt", "_graph_normalizers.pkl")
+            print("saving graph normalizers to: ", pfn)
+            with open(pfn, "wb") as f:
+                pickle.dump((self.normalization_stats, self.idx_starts,
+                                self.idx_types, self.val_idxs, self.idx_lens,
+                                self.num_features),
+                            f)
+
+        elif cfg["plan_net"]["pretrained"]:
+            pfn = self.cfg["sys_net"]["pretrained_fn"]
+            pfn = pfn.replace(".wt", "_graph_normalizers.pkl")
+            print("loading graph node normalizers from: " , pfn)
+
+            with open(pfn, "rb") as f:
+                    self.normalization_stats, self.idx_starts, \
+            self.idx_types, self.val_idxs, self.idx_lens, self.num_features = pickle.load(f)
+
+        if self.y_normalizer == "std":
+            yfn = self.cfg["sys_net"]["pretrained_fn"]
+            yfn = yfn.replace(".wt", "_ynorms.pkl")
+
+            if cfg["sys_net"]["pretrained"]:
+                # load pretrained ys
+                with open(yfn, "rb") as f:
+                    self.ynorms = pickle.load(f)
+                print("Loaded ynormalizers: ", self.ynorms)
+            else:
+                ys = []
+                for G in plans:
+                    if self.log_transform_y:
+                        ys.append(np.log(G.graph["latency"]))
+                    else:
+                        ys.append(G.graph["latency"])
+                ys = np.array(ys)
+                self.ynorms = (np.mean(ys), np.std(ys))
+                print("Y normalization with mean/std: ", self.ynorms)
+                with open(yfn, "wb") as f:
+                    pickle.dump(self.ynorms, f)
+        else:
+            pass
+
+        if "hist_net" not in cfg:
+            pass
+
+        elif cfg["hist_net"]["pretrained"]:
+            hfn = self.cfg["sys_net"]["pretrained_fn"]
+            hfn = hfn.replace(".wt", "_hist_normalizers.pkl")
+            with open(hfn, "rb") as f:
+                hist_means, hist_stds = pickle.load(f)
+            for G in plans:
+                G.graph["runtime_feats"] = (G.graph["runtime_feats"] - hist_means) / hist_stds
+        else:
+            # normalize the 1dfeat reps
+            allfeats = []
+            for G in plans:
+                allfeats.append(G.graph["runtime_feats"])
+            allfeats = np.array(allfeats)
+            hist_means = np.mean(allfeats,axis=0)
+            hist_stds = np.std(allfeats,axis=0)
+
+            ## just use sys_net params for now
+            if cfg["sys_net"]["save_weights"]:
+                hfn = self.cfg["sys_net"]["pretrained_fn"]
+                hfn = hfn.replace(".wt", "_hist_normalizers.pkl")
+                with open(hfn, 'wb') as f:
+                    pickle.dump((hist_means,hist_stds), f)
+                print("history normalizers saved at: ", hfn)
+
+            for G in plans:
+                G.graph["runtime_feats"] = (G.graph["runtime_feats"] - hist_means) / hist_stds
+
         if self.cfg["sys_net"]["pretrained"]:
             if self.cfg["sys_net"]["use_pretrained_norms"]:
                 fn = self.cfg["sys_net"]["pretrained_fn"]
@@ -166,12 +250,35 @@ class Featurizer():
                     pickle.dump(sys_norms, handle)
                 print("normalizers saved at: ", fn)
 
-        # for k,v in sys_norms.items():
-            # print(k, " mean: ", round(v[0], 2), ", std: ", round(v[1], 2))
-        # pdb.set_trace()
-
         self.sys_norms = sys_norms
         self.normalization_stats.update(sys_norms)
+
+        if self.cfg["factorized_net"]["heuristic_feats"]:
+            fn = self.cfg["sys_net"]["pretrained_fn"]
+
+            hfn = fn + "_heuristic_normalizers.pkl"
+            if self.cfg["factorized_net"]["pretrained"] and \
+                    os.path.exists(hfn):
+                print("Going to use pretrained heuristic feature normalizers from: ",
+                        hfn)
+                with open(hfn, 'rb') as handle:
+                    heuristic_norms = pickle.load(handle)
+                self.normalization_stats.update(heuristic_norms)
+            elif not self.cfg["factorized_net"]["pretrained"]:
+                allvals = defaultdict(list)
+                for G in plans:
+                    for h in HEURISTIC_FEATS:
+                        allvals[h].append(G.graph[h])
+
+                heuristic_norms = {}
+                for h in HEURISTIC_FEATS:
+                    heuristic_norms[h] = (np.mean(allvals[h]), np.std(allvals[h]))
+
+                with open(hfn, 'wb') as handle:
+                    pickle.dump(heuristic_norms, handle)
+                print("heuristic normalizers saved at: ", hfn)
+
+                self.normalization_stats.update(heuristic_norms)
 
     def _update_attrs(self, plans, attrs):
         for G in plans:
@@ -196,7 +303,6 @@ class Featurizer():
         print("Number of system log data points per timestep: ", self.num_syslog_features)
 
     def _init_syslog_features(self, sys_logs):
-
         print("init syslog features!")
         sys_normalization = {}
         alllogs = []
@@ -253,18 +359,27 @@ class Featurizer():
         '''
         TODO.
         '''
-        assert self.y_normalizer == "none"
+        # assert self.y_normalizer == "none"
         if self.log_transform_y:
             np.log(y)
+
+        if self.y_normalizer == "std":
+            # val = (prev_logs[key].values.mean() - m0) / m1
+            y = (y-self.ynorms[0]) / self.ynorms[1]
+
         return y
 
     def unnormalizeY(self, y):
         '''
         TODO.
         '''
-        assert self.y_normalizer == "none"
+        # assert self.y_normalizer == "none"
         if self.log_transform_y:
             np.exp(y)
+
+        if self.y_normalizer == "std":
+            y = (y*self.ynorms[1]) + self.ynorms[0]
+
         return y
 
     def handle_key(self, key, v, feature):
@@ -346,6 +461,31 @@ class Featurizer():
 
         return feature
 
+    def get_history_features(self, G, gi, plans):
+        hist_feats = []
+
+        for i in range(NUM_HIST):
+            # curidx = gi-i-1
+            curidx = gi-i
+            if curidx < 0:
+                curfeats = np.zeros(len(G.graph["runtime_feats"]))
+                hist_feats.append(curfeats)
+                continue
+
+            curplan = plans[curidx]
+            if curplan.graph["instance"] != G.graph["instance"]:
+                curfeats = np.zeros(len(G.graph["runtime_feats"]))
+            else:
+                curfeats = curplan.graph["runtime_feats"]
+
+            # if curidx == gi:
+                # curfeats *= RUNTIME_MASK
+
+            hist_feats.append(curfeats)
+
+        return torch.tensor(np.array(hist_feats),
+                    dtype=torch.float)
+
     def get_log_features(self, prev_logs, avg_logs=False):
 
         if avg_logs:
@@ -379,6 +519,33 @@ class Featurizer():
         feature = torch.tensor(feature, dtype=torch.float)
         return feature
 
+    def get_heuristic_feats(self, G):
+        features = np.zeros(self.num_heuristic_feats)
+
+        for hi, hf in enumerate(HEURISTIC_FEATS):
+            val = G.graph[hf]
+
+            ## proper normalization
+            if hf in self.normalization_stats:
+                m0, m1 = self.normalization_stats[hf]
+                if m1 == 0:
+                    # print("m1 == 0", hf)
+                    # pdb.set_trace()
+                    m1+=1
+                nv = (val-m0) / m1
+                if math.isnan(nv):
+                    print("nv is nan: ")
+                    print(key)
+                    print(v)
+                    print(nv)
+                    pdb.set_trace()
+                features[hi] = nv
+            else:
+                if hi == 0:
+                    features[hi] = np.log(val)
+
+        features = torch.tensor(features, dtype=torch.float)
+        return features
 
     def get_pytorch_geometric_features(self, G, subplan_ests=False):
         nodes = list(G.nodes())

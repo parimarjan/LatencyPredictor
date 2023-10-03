@@ -51,6 +51,8 @@ sys_net:
 
   #pretrained_fn: "models3/noimdb_128_ae_include-exp1.wt"
 
+  pretrained_fn: "models3/heuristic_latent_noimdb.wt"
+
   max_pool: 1
   hl: 512
   num_layers: 8
@@ -69,4 +71,5 @@ factorized_net:
   hl: 256
   num_layers: 2
   dropout: 0.0
+  heuristic_feats: 1
 ...
