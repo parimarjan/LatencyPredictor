@@ -13,6 +13,7 @@ MAX_LOG_LEN=30
 
 class LatencyConverterDataset(data.Dataset):
     def __init__(self, plans,
+            train_df,
             syslogs,
             featurizer,
             sys_log_feats,
@@ -32,8 +33,11 @@ class LatencyConverterDataset(data.Dataset):
         print("node feature length: {}, global_features: {}".format(
             featurizer.num_features, featurizer.num_global_features))
 
-        self.data = self._get_pair_features(plans, syslogs,
+        self.data = self._get_pair_features(plans, train_df, syslogs,
                 featurizer)
+
+        # print(len(self.data))
+        # pdb.set_trace()
 
     def __len__(self):
         return len(self.data)
@@ -43,11 +47,20 @@ class LatencyConverterDataset(data.Dataset):
         '''
         return self.data[index]
 
-    def _get_pair_features(self, plans, sys_logs, featurizer):
+    def _get_pair_features(self, plans, df,
+            sys_logs, featurizer):
+        start = time.time()
         data = []
         skip = 0
 
-        for plan1 in plans:
+        print("starting iterating over plans")
+        for pi, plan1 in enumerate(plans):
+            # if pi % 10 == 0:
+                # print(pi)
+
+            lat1 = plan1.graph["latency"]
+            lat1 = featurizer.normalizeY(lat1)
+
             cur_logs = sys_logs[plan1.graph["tag"]][plan1.graph["instance"]]
 
             prev_logs = extract_previous_logs(cur_logs, plan1.graph["start_time"],
@@ -59,14 +72,18 @@ class LatencyConverterDataset(data.Dataset):
             if len(prev_logs) == 0:
                 skip += 1
                 continue
-
-            logf = featurizer.get_log_features(prev_logs,
+            logf1 = featurizer.get_log_features(prev_logs,
                                             self.log_avg)
+            tmp = df[(df["qname"] == plan1.graph["qname"])
+                    & (df["instance"] != plan1.graph["instance"])
+                    ]
+            tmp = tmp.sample(frac=0.2)
 
-            for plan2 in plans:
-                cur_logs2 = sys_logs[plan2.graph["tag"]][plan2.graph["instance"]]
+            for ri, row in tmp.iterrows():
+                cur_logs2 = sys_logs[row["tag"]][row["instance"]]
 
-                prev_logs2 = extract_previous_logs(cur_logs2, plan2.graph["start_time"],
+                prev_logs2 = extract_previous_logs(cur_logs2,
+                                        row["start_time"],
                                         self.log_prev_secs,
                                         self.log_skip,
                                         MAX_LOG_LEN,
@@ -79,9 +96,52 @@ class LatencyConverterDataset(data.Dataset):
                 logf2 = featurizer.get_log_features(prev_logs2,
                                                 self.log_avg)
 
+                lat2 = row["runtime"]
+                lat2 = float(featurizer.normalizeY(lat2))
 
-            data.append(logf, logf2)
+                curx = {}
+                curx["y"]  = lat2
 
+                rfeats = plan1.graph["runtime_feats"]
+                rfeats = (np.array(rfeats) - featurizer.hist_means) \
+                                        / featurizer.hist_stds
+                ### previous code:
+                # rfeats = torch.tensor(np.tile(rfeats, (30, 1)),
+                        # dtype=torch.float)
+                # curx["x"] = torch.concatenate([rfeats, logf1, logf2],
+                        # axis=1)
+
+                # Duplicate rfeats 30 times to make its shape (30, 10)
+                rfeats = torch.tensor(rfeats, dtype=torch.float32)
+                rfeats_stacked = rfeats.repeat(30, 1)
+
+                # For the next 30 rows, create a (30, 10) tensor filled with SENTINEL value
+                SENTINEL = 0  # Or whatever value you want
+                rfeats_sentinel = torch.full((30, rfeats.shape[0]), SENTINEL)
+
+                # Concatenate rfeats and logf1
+                rfeats_logf1_combined = torch.cat((rfeats_stacked, logf1), dim=1)
+
+                # Concatenate sentinel value and logf2
+                rfeats_sentinel_logf2_combined = torch.cat((rfeats_sentinel, logf2),
+                        dim=1)
+
+                # Create a special row of shape (1, 104) filled with the MASKING_TOKEN
+                MASKING_TOKEN = 0  # You can set your desired value here
+                num_cols = rfeats_logf1_combined.shape[1]
+                special_row = torch.full((1, num_cols), MASKING_TOKEN)
+
+                # Use torch.cat to stack tensors with the special row in between
+                result = torch.cat((rfeats_logf1_combined, special_row,
+                    rfeats_sentinel_logf2_combined), dim=0)
+                curx["x"] = result
+
+                data.append(curx)
+                if (len(data)) % 2000 == 0:
+                    print(len(data))
+
+        print("get pair features took: ", time.time()-start)
+        print(len(data))
         return data
 
 class QueryPlanDataset(data.Dataset):
@@ -134,10 +194,6 @@ class QueryPlanDataset(data.Dataset):
             else:
                 curfeats = featurizer.get_pytorch_geometric_features(G,
                         self.subplan_ests)
-                # curfeats = curfeats.to(device,
-                        # non_blocking=True)
-
-                #curfeats["y"] = lat
 
             cur_logs = sys_logs[G.graph["tag"]][G.graph["instance"]]
 
@@ -152,7 +208,15 @@ class QueryPlanDataset(data.Dataset):
                 continue
 
             logf = featurizer.get_log_features(prev_logs,
-                                            self.log_avg)
+                                            avg_logs=self.log_avg,
+                                            lt_type=G.graph["lt_type"],
+                                            )
+
+            # if STATIC_FEATS:
+                # lt_feats = featurizer.get_static_features(G.graph["lt_type"])
+                # # Duplicate rfeats 30 times to make its shape (30, 10)
+                # lt_feats = lt_feats.unsqueeze(0).repeat(30, 1)
+                # logf = torch.cat((logf, lt_feats), dim=1)
 
             if logf.shape[0] < MAX_LOG_LEN:
                 continue

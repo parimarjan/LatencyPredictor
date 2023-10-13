@@ -450,7 +450,7 @@ class SimpleGCN(torch.nn.Module):
             out_feats=1,
             final_act="none",
             dropout=0.2,
-            lin_dropout=0.0,
+            lin_dropout=0.2,
             arch="gcn"
             ):
         super(SimpleGCN, self).__init__()

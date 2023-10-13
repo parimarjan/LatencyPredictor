@@ -14,10 +14,9 @@ IGNORE_NODE_FEATS = ["Alias", "Filter"]
 ## RowsRemovedbyJoinFilter
 # MAX_SET_LEN = 50000
 
-            # G.graph["heuristic_cost"] = max_cost
-            # G.graph["heuristic_pred"] = max_cost
 HEURISTIC_FEATS = ["heuristic_cost", "heuristic_pred"]
 NUM_HIST = 30
+STATIC_FEATS=1
 
 class Featurizer():
     def __init__(self,
@@ -81,8 +80,6 @@ class Featurizer():
                     print("ignoring node feature of type: {}, with {} elements".format(k, len(v)))
                     continue
 
-                # if "Actual" in k and not self.actual_feats:
-                    # continue
                 if self.actual_feats and "Actual" in k:
                     if not "ActualRows" in k:
                         continue
@@ -93,6 +90,7 @@ class Featurizer():
                 if len(v) == 1:
                     continue
 
+                assert k not in self.idx_starts
                 self.idx_starts[k] = self.cur_feature_idx
                 used_keys.add(k)
 
@@ -190,6 +188,14 @@ class Featurizer():
         else:
             pass
 
+        ## FIXME: initialize properly
+        allfeats = []
+        for G in plans:
+            allfeats.append(G.graph["runtime_feats"])
+        allfeats = np.array(allfeats)
+        self.hist_means = np.mean(allfeats,axis=0)
+        self.hist_stds = np.std(allfeats,axis=0)
+
         if "hist_net" not in cfg:
             pass
 
@@ -197,28 +203,28 @@ class Featurizer():
             hfn = self.cfg["sys_net"]["pretrained_fn"]
             hfn = hfn.replace(".wt", "_hist_normalizers.pkl")
             with open(hfn, "rb") as f:
-                hist_means, hist_stds = pickle.load(f)
-            for G in plans:
-                G.graph["runtime_feats"] = (G.graph["runtime_feats"] - hist_means) / hist_stds
+                self.hist_means, self.hist_stds = pickle.load(f)
+            # for G in plans:
+                # G.graph["runtime_feats"] = (G.graph["runtime_feats"] - hist_means) / hist_stds
         else:
             # normalize the 1dfeat reps
             allfeats = []
             for G in plans:
                 allfeats.append(G.graph["runtime_feats"])
             allfeats = np.array(allfeats)
-            hist_means = np.mean(allfeats,axis=0)
-            hist_stds = np.std(allfeats,axis=0)
+            self.hist_means = np.mean(allfeats,axis=0)
+            self.hist_stds = np.std(allfeats,axis=0)
 
             ## just use sys_net params for now
             if cfg["sys_net"]["save_weights"]:
                 hfn = self.cfg["sys_net"]["pretrained_fn"]
                 hfn = hfn.replace(".wt", "_hist_normalizers.pkl")
                 with open(hfn, 'wb') as f:
-                    pickle.dump((hist_means,hist_stds), f)
+                    pickle.dump((self.hist_means,self.hist_stds), f)
                 print("history normalizers saved at: ", hfn)
 
-            for G in plans:
-                G.graph["runtime_feats"] = (G.graph["runtime_feats"] - hist_means) / hist_stds
+            # for G in plans:
+                # G.graph["runtime_feats"] = (G.graph["runtime_feats"] - hist_means) / hist_stds
 
         if self.cfg["sys_net"]["pretrained"]:
             if self.cfg["sys_net"]["use_pretrained_norms"]:
@@ -294,6 +300,7 @@ class Featurizer():
         cur_feature_idx = 0
 
         for key in keys:
+            assert key not in self.idx_starts
             self.idx_starts[key] = cur_feature_idx
             self.idx_types[key] = "cont"
             self.idx_lens[key] = 1
@@ -301,6 +308,9 @@ class Featurizer():
             self.num_syslog_features += 1
 
         print("Number of system log data points per timestep: ", self.num_syslog_features)
+        if STATIC_FEATS:
+            self.idx_starts["sys_static"] = self.num_syslog_features
+            self.num_syslog_features += 10
 
     def _init_syslog_features(self, sys_logs):
         print("init syslog features!")
@@ -463,7 +473,6 @@ class Featurizer():
 
     def get_history_features(self, G, gi, plans):
         hist_feats = []
-
         for i in range(NUM_HIST):
             # curidx = gi-i-1
             curidx = gi-i
@@ -473,20 +482,31 @@ class Featurizer():
                 continue
 
             curplan = plans[curidx]
-            if curplan.graph["instance"] != G.graph["instance"]:
+            if curplan.graph["instance"] != G.graph["instance"] \
+                    or not hasattr(self, "hist_means"):
                 curfeats = np.zeros(len(G.graph["runtime_feats"]))
             else:
-                curfeats = curplan.graph["runtime_feats"]
+                curfeats = (np.array(curplan.graph["runtime_feats"]) - self.hist_means) \
+                                        / self.hist_stds
 
-            # if curidx == gi:
-                # curfeats *= RUNTIME_MASK
+            if curidx == gi:
+                curfeats *= RUNTIME_MASK
 
             hist_feats.append(curfeats)
 
         return torch.tensor(np.array(hist_feats),
                     dtype=torch.float)
 
-    def get_log_features(self, prev_logs, avg_logs=False):
+    # def get_static_features(self, lt_type):
+        # feats = np.zeros(len(ALL_INSTANCES))
+        # for i, inst in enumerate(ALL_INSTANCES):
+            # if inst == lt_type:
+                # feats[i] = 1.0
+
+        # return torch.tensor(feats, dtype=torch.float32)
+
+    def get_log_features(self, prev_logs,
+            avg_logs=False, lt_type=""):
 
         if avg_logs:
             feature = np.zeros(self.num_syslog_features)
@@ -514,14 +534,20 @@ class Featurizer():
 
                 elif self.normalizer == "std":
                     vals = (prev_logs[key].values - m0) / m1
+
                 feature[:,idx_col] = vals
+
+        if "sys_static" in self.idx_starts:
+            si = self.idx_starts["sys_static"]
+            for i, inst in enumerate(ALL_INSTANCES):
+                if inst == lt_type:
+                    feature[:,si+i] = 1.0
 
         feature = torch.tensor(feature, dtype=torch.float)
         return feature
 
     def get_heuristic_feats(self, G):
         features = np.zeros(self.num_heuristic_feats)
-
         for hi, hf in enumerate(HEURISTIC_FEATS):
             val = G.graph[hf]
 

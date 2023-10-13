@@ -12,6 +12,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from latency_predictor.utils import *
 from latency_predictor.algs import *
 from latency_predictor.nn import NN
+from latency_predictor.latency_converter import LatencyConverter
 from latency_predictor.eval_fns import *
 from latency_predictor.featurizer import *
 import wandb
@@ -152,6 +153,30 @@ def get_alg(alg, cfg):
         return DBMS(granularity="lt_type")
     elif alg == "dbms-all":
         return DBMS(granularity="all")
+    elif alg == "lc":
+        return LatencyConverter(
+                cfg = cfg,
+                lrscheduler=args.lrscheduler,
+                result_dir = args.result_dir,
+                layernorm=args.layernorm,
+                arch = args.arch, hl1 = args.hl1,
+                subplan_ests = args.subplan_ests,
+                eval_fn_names = args.eval_fns,
+                num_conv_layers = args.num_conv_layers,
+                final_act = args.final_act,
+                use_wandb = args.use_wandb,
+                log_transform_y = args.log_transform_y,
+                batch_size = args.batch_size,
+                global_feats = args.global_feats,
+                # tags = args.tags,
+                # seed = args.seed,
+                test_size = args.test_size,
+                # val_size = args.val_size,
+                eval_epoch = args.eval_epoch,
+                # logdir = args.logdir,
+                num_epochs = args.num_epochs,
+                lr = args.lr, weight_decay = args.weight_decay,
+                loss_fn_name = args.loss_fn_name)
 
     elif alg == "nn":
         return NN(
@@ -260,7 +285,14 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
 
 def read_flags():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--extra_training", type=int,
+            required=False,
+            default=None, help="")
+
     parser.add_argument("--min_est", type=float,
+            required=False,
+            default=None, help="")
+    parser.add_argument("--split_kind", type=str,
             required=False,
             default=None, help="")
 
@@ -455,6 +487,7 @@ def load_dfs(dirs, tags):
 
 def main():
     global args,cfg,MIN_EST
+    print("hello world")
 
     with open(args.config) as f:
         cfg = yaml.safe_load(f.read())
@@ -509,6 +542,13 @@ def main():
     #df = df[df["runtime"] > 2.0]
 
     train_df, test_df = split_workload(df, cfg)
+    if "extra_training" in cfg and cfg["extra_training"]:
+        edf, esys_logs = load_dfs(cfg["traindata_dir"],
+                cfg["extra_training_tags"])
+        edf = edf.sample(frac=cfg["extra_training_frac"])
+        print("Updated training data with: {} samples".format(len(edf)))
+        sys_logs.update(esys_logs)
+        train_df = pd.concat([train_df, edf])
 
     train_plans = get_plans(train_df)
     test_plans = get_plans(test_df)
@@ -535,6 +575,8 @@ def main():
     else:
         new_env_seen_plans = []
         new_env_unseen_plans = []
+        seendf = None
+        unseendf = None
 
     print("Training queries: {}, Training plans: {},\
 Test queries: {}, Test Plans: {}, New Env Seen Plans: {}\
@@ -547,8 +589,8 @@ New Env Unseen Plans: {}".format(
     elif args.feat_normalization_data == "all":
         feat_plans = train_plans + test_plans + new_env_seen_plans + new_env_unseen_plans
 
-    # featurizer = Featurizer(train_plans + new_env_unseen_plans,
-    featurizer = Featurizer(train_plans,
+    featurizer = Featurizer(train_plans + new_env_unseen_plans,
+    # featurizer = Featurizer(train_plans,
                             sys_logs,
                             cfg,
                             sys_seq_kind=args.sys_seq_kind,
@@ -588,6 +630,9 @@ New Env Unseen Plans: {}".format(
             test = test_plans,
             new_env_seen= new_env_seen_plans,
             new_env_unseen = new_env_unseen_plans,
+            train_df = train_df,
+            test_df = test_df,
+            unseen_df = unseendf,
             )
 
     eval_alg(alg, eval_fns, train_plans, sys_logs, "train")

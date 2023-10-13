@@ -7,14 +7,18 @@ num_instances : 1
 seed : 1
 ignore_node_feats: "Alias,Filter"
 
+latent_variable: 1
+num_latents: 128
+latent_inference: 0
+
 max_set_len : 1000
 num_bins : 100
 
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/new"
 #tags: "exp2_single,exp3_single,"
-#tags: "exp1_single,exp2_single,exp3_single"
-tags: "exp13_imdb"
+tags: "exp1_single,exp2_single,exp3_single"
+#tags: "exp13_imdb"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
@@ -42,7 +46,7 @@ sys_net:
   use_pretrained_norms: 1
   save_weights: 0
 
-  pretrained_fn: "models3/noimdb_128_actual_ae.wt"
+  #pretrained_fn: "models3/noimdb_128_actual_ae.wt"
 
   #pretrained_fn: "models3/noimdb_128_actual_ae_fact4.wt"
   #pretrained_fn: "models3/noimdbwk_128_actual_ae_fact4.wt"
@@ -51,11 +55,12 @@ sys_net:
 
   #pretrained_fn: "models3/noimdb_128_ae_include-exp1.wt"
 
-  pretrained_fn: "models3/heuristic_latent_noimdb.wt"
+  #pretrained_fn: "models3/heuristic_latent_noimdb.wt"
+  pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch.wt"
 
   max_pool: 1
   hl: 512
-  num_layers: 8
+  num_layers: 2
   num_heads: 16
   log_prev_secs: 600
   log_skip: 2

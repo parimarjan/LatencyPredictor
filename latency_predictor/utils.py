@@ -21,6 +21,7 @@ from torch.autograd import Variable
 
 # MIN_EST = 0.1
 MIN_EST = 1.0
+MAX_EST = 909.0
 
 ALL_INSTANCES = ['a1_large_gp3_4g',
  'c5a_large_mag_4g',

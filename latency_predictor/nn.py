@@ -411,6 +411,8 @@ class NN(LatencyPredictor):
     def train(self, train_plans, sys_logs, featurizer,
             test=[],
             new_env_seen = [], new_env_unseen = [],
+            train_df = None, test_df = None,
+            unseen_df = None,
             ):
 
         self.featurizer = featurizer
@@ -674,7 +676,12 @@ class NN(LatencyPredictor):
                 # yh = yhat.item()
                 # res.append(self.featurizer.unnormalizeY(yh))
                 for gi in range(data["graph"].num_graphs):
-                    res.append(self.featurizer.unnormalizeY(yhat[gi].item()))
+                    est = self.featurizer.unnormalizeY(yhat[gi].item())
+                    if est < MIN_EST:
+                        est = MIN_EST
+                    if est > MAX_EST:
+                        est = MAX_EST
+                    res.append(est)
 
             if self.cfg["latent_inference"] \
                     and hasattr(self.net, "Z"):

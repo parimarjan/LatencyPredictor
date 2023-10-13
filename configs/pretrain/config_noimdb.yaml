@@ -37,30 +37,23 @@ plan_net:
   dropout : 0.2
   pretrained: 0
 
+hist_net:
+  # mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  save_weights: 1
+
+  max_pool: 0
+  hl: 32
+  num_layers: 2
+  num_heads: 16
+  dropout: 0.2
+
 sys_net:
   # mlp / transformer
   arch: "transformer"
   pretrained : 0
   save_weights: 1
-  #pretrained_fn: "models2/noimdb_128_filters_actual.wt"
-  #pretrained_fn: "models3/noimdb_128_actual_ae.wt"
-  #pretrained_fn: "models3/noimdb_128_actual_ae_fact2.wt"
-
-  #pretrained_fn: "models3/noimdb_128_ae.wt"
-
-  #pretrained_fn: "models3/noimdb_128_ae.wt"
-
-  #pretrained_fn: "models3/noimdb_128_ae_include-exp1.wt"
-
-  #pretrained_fn: "models3/noimdb_log.wt"
-
-  # latent
-  #pretrained_fn: "models3/latent_noimdb.wt"
-  #pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch2.wt"
-
-  #pretrained_fn: "models3/latent_stack-ergast-tpch-ceb2.wt"
-
-  #pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch-log2.wt"
 
   # latent + heuristic
   #pretrained_fn: "models3/heuristic_latent_noimdb.wt"
@@ -69,7 +62,8 @@ sys_net:
   #pretrained_fn: "models3/latent_stack-ergast-tpch-fact0.wt"
 
   #pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch-fact0.wt"
-  pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch.wt"
+  #pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch.wt"
+  pretrained_fn: "models3/hist_heuristic_latent_stack-ergast-tpch.wt"
 
   max_pool: 1
   hl: 512
