@@ -1,0 +1,75 @@
+%YAML 1.2
+---
+#split_kind : "query" # instances,query,...;
+split_kind : "instances" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : 1
+seed : 1
+#max_set_len : 5000
+#num_bins : 250
+latent_variable: 1
+num_latents: 128
+latent_inference: 0
+
+max_set_len : 1000
+num_bins : 100
+
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/new"
+#tags: "exp2_single,exp3_single,"
+#tags: "exp1_single,exp2_single,exp3_single"
+tags: "exp13_imdb"
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : "exp1_single,exp2_single"
+#eval_tags : "exp1_single"
+
+extra_training: 1
+extra_training_frac: 0.1
+extra_training_tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch"
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 4
+  subplan_ests: 0
+  dropout : 0.0
+  pretrained: 0
+
+sys_net:
+  # mlp / transformer
+  arch: "transformer"
+  pretrained : 1
+  save_weights: 0
+  use_pretrained_norms: 1
+
+  pretrained_fn: "models4/noimdbwk_actual.wt"
+  #pretrained_fn: "models4/noimdb_actual.wt"
+  #pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
+  #pretrained_fn: "models4/noimdb_noactual.wt"
+
+  max_pool: 0
+  hl: 512
+  num_layers: 4
+  num_heads: 16
+  log_prev_secs: 600
+  log_skip: 2
+  dropout: 0.2
+
+factorized_net:
+  arch: "mlp" # dot product
+  #arch: "attention"
+  embedding_size: 128
+  #arch: "dot"
+  #embedding_size: 32
+  pretrained: 1
+  hl: 256
+  num_layers: 2
+  dropout: 0.2
+  heuristic_feats: 0
+...

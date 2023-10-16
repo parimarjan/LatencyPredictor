@@ -1,0 +1,121 @@
+%YAML 1.2
+---
+#split_kind : "query" # instances,query,...;
+#split_kind : "instances" # instances,query,...;
+split_kind : "lt_type" # instances,query,...;
+
+#split_kind : "instances-query" # instances,query,...;
+
+random_split: "random" # random,custom
+num_instances : 1
+seed : 1
+#ignore_node_feats: "Alias,Filter"
+ignore_node_feats: ""
+
+max_set_len : 100
+num_bins : 100
+
+latent_variable: 1
+latent_inference: 1
+num_latents: 128
+
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/new"
+#tags: "exp2_single,exp3_single,"
+#tags: "exp1_single,exp2_single,exp3_single"
+tags: "exp8_single_stack"
+
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : "exp1_single,exp2_single"
+#eval_tags : "exp1_single"
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 8
+  subplan_ests: 0
+  dropout : 0.2
+
+  ## 2 is just initialized; 1 is pretrained and fixed
+  pretrained: 0
+
+sys_net:
+  # mlp / transformer
+  #arch: "avg"
+  #arch: "mlp"
+  arch: "transformer"
+  pretrained : 1
+  use_pretrained_norms: 1
+  save_weights: 0
+
+  #pretrained_fn: "models2/all_attention.wt"
+  #pretrained_fn: "models2/bg_imdball_attention.wt"
+
+  ## old good run; max_pool:1,layers:8,heads:16
+  #pretrained_fn: "models2/nostack_128_filter_actual_fixed.wt"
+
+  #pretrained_fn: "models2/nostack_128_filter_actual_attn.wt"
+  #pretrained_fn: "models2/bg_debug.wt"
+  #pretrained_fn: "models2/allbg_debug.wt"
+
+  ## bg pretrained
+  #pretrained_fn: "models2/bg_multi4.wt"
+  #pretrained_fn: "models2/bg_multi4_stack1p.wt"
+  #pretrained_fn: "models2/bg_multi4_imdb2p.wt"
+  #pretrained_fn: "models2/bg_multi4.wt"
+
+  #nostack_128_filter_actual_normalizers.pkl
+
+  #pretrained_fn: "models3/nostack_128_actual.wt"
+  #pretrained_fn: "models3/nostack_128_actual_ae.wt"
+
+  ### good one; no actual vals; max_pool: 1
+  #pretrained_fn: "models3/nostack_128_actual_ae.wt"
+  #pretrained_fn: "models_final/nostack_128_actual_ae.wt"
+
+  ### with actual values when training; maxpool: 0
+  #pretrained_fn: "models3/nostack_128_actual_ae2.wt"
+
+  ### no actual values; maxpool: 0; fact layers 4;
+  #pretrained_fn: "models3/nostack_128_actual_ae2_fact4.wt"
+
+  #pretrained_fn: "models3/new_nostack_ae.wt"
+
+
+  ### latent models
+  #pretrained_fn: "models3/latent_nostack_ae2.wt"
+
+  ### latent + heuristic
+  #pretrained_fn: "models3/heuristic_latent_nostack_ae2.wt"
+  pretrained_fn: "models3/heuristic_latent_nostack.wt"
+  #pretrained_fn: "models3/heuristic_latent_nostack2.wt"
+
+  ## debug
+  #pretrained_fn: "models3/heuristic_latent_noimdb.wt"
+
+  max_pool: 1
+  hl: 512
+  num_layers: 8
+  num_heads: 16
+
+  log_prev_secs: 600
+  log_skip: 2
+  dropout: 0.0
+
+factorized_net:
+  arch: "mlp" # dot product
+  #arch: "attention" # dot product
+  #arch: "dot"
+  num_layers: 2
+  embedding_size: 128
+  pretrained: 1
+  hl: 256
+  dropout: 0.0
+  heuristic_feats: 1
+...

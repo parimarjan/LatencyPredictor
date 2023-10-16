@@ -1,0 +1,99 @@
+%YAML 1.2
+---
+#split_kind : "query" # instances,query,...;
+split_kind : "instances" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : 1
+seed : 1
+#max_set_len : 5000
+#num_bins : 250
+
+max_set_len : 1000
+num_bins : 100
+
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/background"
+
+## p2 bg load
+#tags: "exp7_multi4"
+
+## simple bg load, no time limit etc., chess-training-data
+#tags: "exp6_multi4,exp6_multi4b"
+
+## all-imdb 1p loads
+tags: "exp6_multi4,exp6_multi4b,exp10_multi4_1p_imdb"
+
+## all-stack 1p loads
+#tags: "exp9_stack1,exp9_stack2,exp11_multi4_stack"
+
+## stack+imdb; 1p load
+#tags: "exp9_stack1,exp9_stack2,exp10_multi4_1p_imdb,exp11_multi4_stack"
+
+#tags: "exp3_stack_multi1"
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : "exp1_single,exp2_single"
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 4
+  subplan_ests: 0
+  dropout : 0.2
+sys_net:
+  arch: "transformer"
+  pretrained : 1
+  use_pretrained_norms: 1
+  save_weights: 0
+
+  #pretrained_fn: "models2/noimdb_128_filters_actual_fixed.wt"
+  #pretrained_fn: "models2/noimdb2_attention.wt"
+  #pretrained_fn: "models2/bg_imdball_attention.wt"
+
+  ## similar pretrained
+  #pretrained_fn: "models2/bg_multi4.wt"
+  #pretrained_fn: "models2/bg_multi4_stack1p.wt"
+  pretrained_fn: "models2/bg_multi4_imdb2p.wt"
+
+
+  #pretrained_fn: "models2/bg_multi4.wt"
+  #pretrained_fn: "models2/bg_multi_exp91011.wt"
+
+  #pretrained_fn: "models_all/all_attention_bins50.wt"
+  #pretrained_fn: "models2/all_attention.wt"
+  #pretrained_fn: "models2/all_attention_bins50.wt"
+
+  #pretrained_fn: "models2/bg_stack_attention.wt"
+
+  #pretrained_fn: "models2/bg_imdball_mlp.wt"
+
+  ## includes imdb (ceb-2 and joblight)
+  #pretrained_fn: "models/all_noimdb_128_col1_fixed.wt"
+
+  hl: 512
+  num_layers: 8
+  num_heads: 16
+
+  #num_layers: 16
+  #num_heads: 32
+
+  log_prev_secs: 600
+  log_skip: 2
+
+factorized_net:
+  arch: "attention" # dot product
+  embedding_size: 128
+  #arch: "dot"
+  #embedding_size: 32
+  num_layers: 2
+  pretrained: 1
+  hl: 256
+
+  #arch: "mlp" # dot product
+  #num_layers: 2
+...

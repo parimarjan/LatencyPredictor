@@ -1,0 +1,90 @@
+%YAML 1.2
+---
+split_kind : "query" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : 1
+seed : 1
+
+max_set_len : 100
+num_bins : 25
+
+latent_variable: 0
+num_latents: 128
+latent_inference: 0
+
+traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
+#traindata_dir : "LatencyCollectorResults/new"
+
+#traindata_dir : "LatencyCollectorResults/new"
+###tags: "exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
+
+### different splits here
+## background:
+#exp1                   exp12_multi4_tpch_stats_ergast  exp4_ceb2               exp7_multi4
+#exp10_multi4_1p_imdb   exp13_r7r6                      exp5_tpch_stats_ergast  exp8_stack_fail
+#exp10_multi4_1p_imdb2  exp2_stack                      exp6_multi4             exp9_stack1
+#exp11_multi4_stack     exp3_stack_multi1               exp6_multi4b            exp9_stack2
+
+## new:
+#exp10_single_zdbs  exp2_single         exp5_single_stats     exp8_single_stack
+#exp11_single_zdbs  exp3_single         exp6_single_joblight  exp9_single_tpch
+#exp1_single        exp4_single_ergast  exp7_single_ceb2
+
+## imdb splits
+#tags: "exp1_single,exp2_single,exp3_single,exp1,exp4_ceb2,exp7_multi4,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b,exp10_multi4_1p_imdb2,exp7_single_ceb2"
+
+#tags: "exp2_stack"
+#tags: "exp10_single_zdbs"
+#tags: "exp1"
+#tags: "exp1"
+#tags: "exp8_single_stack"
+## stack splits
+tags: "exp8_single_stack,exp2_stack,exp9_stack1,exp9_stack2"
+#tags: "exp2_stack"
+
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+#eval_tags : "exp1_single"
+eval_tags : "exp1_single,exp2_single"
+
+latent_variable: 1
+num_latents: 128
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 8
+  subplan_ests: 0
+  dropout : 0.2
+  pretrained: 0
+
+sys_net:
+  # avg/ mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  use_pretrained_norms: 0
+  save_weights: 1
+  pretrained_fn: "models3/query_split_pretrain.wt"
+  max_pool: 1
+  dropout: 0.2
+
+  hl: 512
+  num_layers: 4
+  num_heads: 16
+  log_prev_secs: 600
+  log_skip: 2
+
+factorized_net:
+  arch: "mlp" # dot product
+  embedding_size: 128
+  pretrained: 0
+  hl: 256
+  num_layers: 2
+  dropout: 0.0
+  heuristic_feats: 0
+...

@@ -1,0 +1,61 @@
+%YAML 1.2
+---
+split_kind : "query" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : 1
+seed : 1
+#ignore_node_feats: "Alias,Filter"
+ignore_node_feats: ""
+
+max_set_len : 50000
+num_bins : 500
+
+latent_variable: 1
+num_latents: 128
+latent_inference: 0
+
+traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults,LatencyCollectorResults/background"
+
+#tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch"
+tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch,exp11_multi4_stack,exp12_multi4_tpch_stats_ergast,exp2_stack,exp3_stack_multi1,exp5_tpch_stats_ergast,exp9_stack1,exp9_stack2,"
+
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : "exp2_single"
+
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 4
+  subplan_ests: 0
+  dropout : 0.2
+  pretrained: 0
+
+sys_net:
+  # mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  save_weights: 1
+
+  pretrained_fn: "models3/noimdb_all2.wt"
+
+  max_pool: 1
+  hl: 512
+  num_layers: 2
+  num_heads: 16
+  log_prev_secs: 600
+  log_skip: 2
+  dropout: 0.2
+
+factorized_net:
+  arch: "mlp" # dot product
+  embedding_size: 128
+
+  pretrained: 0
+  hl: 256
+  num_layers: 2
+  dropout: 0.2
+  heuristic_feats: 1
+...

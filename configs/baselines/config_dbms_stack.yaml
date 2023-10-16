@@ -1,0 +1,94 @@
+%YAML 1.2
+---
+#split_kind : "query_dir-test_instances" # instances,query,...;
+split_kind : "query_dir" # instances,query,...;
+
+#split_kind : "query_dir" # instances,query,...;
+
+#test_query_dir: "./queries/stack-small"
+
+#test_query_dir: "./queries/ceb-small,./queries/job"
+test_query_dir: "./queries/stack-small"
+
+random_split: "random" # random,custom
+num_instances : 1
+seed : 1
+
+max_set_len : 100
+num_bins : 25
+
+#gpu: 0
+#traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
+traindata_dir : "LatencyCollectorResults/new"
+
+#traindata_dir : "LatencyCollectorResults/new"
+#traindata_dir : "LatencyCollectorResults/background"
+
+#traindata_dir : "LatencyCollectorResults/new"
+###tags: "exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
+
+### different splits here
+## background:
+#exp1                   exp12_multi4_tpch_stats_ergast  exp4_ceb2               exp7_multi4
+#exp10_multi4_1p_imdb   exp13_r7r6                      exp5_tpch_stats_ergast  exp8_stack_fail
+#exp10_multi4_1p_imdb2  exp2_stack                      exp6_multi4             exp9_stack1
+#exp11_multi4_stack     exp3_stack_multi1               exp6_multi4b            exp9_stack2
+
+
+## new:
+
+tags: "exp10_single_zdbs,exp5_single_stats,exp8_single_stack,
+  exp11_single_zdbs,exp9_single_tpch,
+  exp4_single_ergast,exp1_single,exp2_single,exp3_single
+  "
+
+## with exp13:imdb
+#tags: "exp10_single_zdbs,exp5_single_stats,exp8_single_stack,
+  #exp11_single_zdbs,exp6_single_joblight,exp9_single_tpch,
+  #exp4_single_ergast,exp7_single_ceb2,exp13_imdb"
+
+## background
+
+#tags: "exp1,exp10_multi4_1p,exp10_multi4_1p_imdb,exp10_multi4_1p_imdb2,exp11_multi4_stack,exp12_multi4_tpch_stats_ergast,exp2_stack,exp3_stack_multi1,exp5_tpch_stats_ergast,exp6_multi4,exp6_multi4b,exp7_multi4,exp8_stack_fail,exp9_stack1,exp9_stack2, exp10_single_zdbs,exp5_single_stats,exp8_single_stack,exp11_single_zdbs,exp9_single_tpch,exp4_single_ergast,exp1_single,exp2_single,exp3_single"
+
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/background"
+#eval_tags : "exp1_single"
+eval_tags: "exp1,exp10_multi4_1p,exp10_multi4_1p_imdb,exp10_multi4_1p_imdb2,exp6_multi4,exp6_multi4b,exp7_multi4"
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 4
+  subplan_ests: 0
+  dropout : 0.2
+sys_net:
+  # avg/ mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  use_pretrained_norms: 0
+  save_weights: 0
+  pretrained_fn: null
+  max_pool: 0
+
+  hl: 512
+  num_layers: 2
+  num_heads: 32
+  log_prev_secs: 600
+  log_skip: 2
+
+factorized_net:
+  arch: "mlp" # dot product
+  #arch: "dot" # dot product
+  embedding_size: 128
+  #arch: "dot"
+  #embedding_size: 32
+  pretrained: 0
+  hl: 256
+  num_layers: 2
+...

@@ -1,0 +1,119 @@
+%YAML 1.2
+---
+split_kind : "query" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : 1
+seed : 1
+ignore_node_feats: "Alias,Filter,MergeCond,SortKey,GroupKey,HashCond,SubplanName"
+#ignore_node_feats: ""
+
+max_set_len : 100
+num_bins : 25
+
+latent_variable: 0
+num_latents: 128
+latent_inference: 0
+
+traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
+
+#tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
+
+#tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
+
+#tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch"
+#tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs"
+#tags: "exp8_single_stack,exp9_single_tpch"
+
+#tags: "exp8_single_stack,exp9_single_tpch,exp4_single_ergast,exp7_single_ceb2"
+#tags: "exp8_single_stack,exp9_single_tpch,exp4_single_ergast,exp10_single_zdbs"
+tags: "exp8_single_stack,exp9_single_tpch,exp4_single_ergast"
+
+#tags: "exp9_single_tpch,exp4_single_ergast,exp1_single,exp2_single,exp3_single"
+
+#tags: "exp8_single_stack"
+
+#tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch"
+#tags: "exp2_single,exp4_single_ergast,exp8_single_stack,exp9_single_tpch"
+
+use_eval_tags : 1
+eval_dirs : "LatencyCollectorResults/new"
+#eval_tags: "exp13_imdb"
+eval_tags : "exp1_single,exp2_single,exp3_single"
+#eval_tags: "exp8_single_stack"
+#eval_tags : "exp2_single"
+
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 8
+  subplan_ests: 0
+  dropout : 0.2
+  pretrained: 0
+
+#hist_net:
+  ## mlp / transformer
+  #arch: "transformer"
+  #pretrained : 0
+  #save_weights: 1
+
+  #max_pool: 0
+  #hl: 32
+  #num_layers: 4
+  #num_heads: 32
+  #dropout: 0.2
+
+sys_net:
+  # mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  save_weights: 1
+  #pretrained_fn: "models2/noimdb_128_filters_actual.wt"
+  #pretrained_fn: "models3/noimdb_128_actual_ae.wt"
+  #pretrained_fn: "models3/noimdb_128_actual_ae_fact2.wt"
+
+  #pretrained_fn: "models3/noimdb_128_ae.wt"
+
+  #pretrained_fn: "models3/noimdb_128_ae.wt"
+
+  #pretrained_fn: "models3/noimdb_128_ae_include-exp1.wt"
+
+  #pretrained_fn: "models3/noimdb_log.wt"
+
+  # latent
+  #pretrained_fn: "models3/latent_noimdb.wt"
+  #pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch2.wt"
+
+  #pretrained_fn: "models3/latent_stack-ergast-tpch-ceb2.wt"
+
+  #pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch-log2.wt"
+
+  # latent + heuristic
+  #pretrained_fn: "models3/heuristic_latent_noimdb.wt"
+
+  # latent debug
+  #pretrained_fn: "models3/latent_stack-ergast-tpch-fact0.wt"
+
+  #pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch-fact0.wt"
+  #pretrained_fn: "models3/debug_heuristic_latent_stack-ergast-tpch.wt"
+
+  pretrained_fn: "models3/pretrain_all-no_imdb.wt"
+
+  max_pool: 0
+  hl: 512
+  num_layers: 8
+  num_heads: 32
+  log_prev_secs: 600
+  log_skip: 2
+  dropout: 0.0
+
+factorized_net:
+  arch: "mlp" # dot product
+  embedding_size: 128
+  pretrained: 0
+  hl: 256
+  num_layers: 4
+  dropout: 0.2
+  heuristic_feats: 1
+...

@@ -1,0 +1,97 @@
+%YAML 1.2
+---
+#split_kind : "query" # instances,query,...;
+#split_kind : "instances" # instances,query,...;
+split_kind : "lt_type" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : 1
+seed : 1
+ignore_node_feats: "Alias,Filter"
+#ignore_node_feats: ""
+
+max_set_len : 1000
+num_bins : 100
+
+latent_variable: 1
+latent_inference: 0
+num_latents: 128
+
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/new"
+#tags: "exp2_single,exp3_single,"
+tags: "exp1_single,exp2_single,exp3_single"
+#tags: "exp13_imdb"
+
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : ""
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 8
+  subplan_ests: 0
+  dropout : 0.2
+  pretrained: 0
+
+sys_net:
+  # mlp / transformer
+  #arch: "avg"
+  #arch: "mlp"
+  arch: "transformer"
+  pretrained : 1
+  use_pretrained_norms: 1
+  save_weights: 0
+
+  #pretrained_fn: "models3/noimdb_128_actual_ae.wt"
+
+  #pretrained_fn: "models3/noimdb_128_actual_ae_fact4.wt"
+  #pretrained_fn: "models3/noimdbwk_128_actual_ae_fact4.wt"
+
+  #pretrained_fn: "models3/noimdb_128_ae.wt"
+
+  #pretrained_fn: "models3/noimdb_128_ae_include-exp1.wt"
+
+  #pretrained_fn: "models3/noimdb_128_ae_actual_incl_bg.wt"
+
+  #pretrained_fn: "models3/imdb13.wt"
+
+  #pretrained_fn: "models3/heuristic_latent_noimdb.wt"
+  #pretrained_fn: "models3/heuristic_latent_all.wt"
+
+  # only latents; ok.
+  pretrained_fn: "models3/latent_noimdb.wt"
+
+  # new ones
+  #pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch.wt"
+
+  #pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch-log.wt"
+  #pretrained_fn: "models3/heuristic_latent_stack-ergast-tpch-log2.wt"
+
+  #pretrained_fn: "models3/latent_stack-ergast-tpch-ceb2.wt"
+
+  max_pool: 1
+  hl: 512
+  num_layers: 2
+  num_heads: 16
+  log_prev_secs: 600
+  log_skip: 2
+  dropout: 0.0
+
+factorized_net:
+  arch: "mlp" # dot product
+  #arch: "attention"
+  embedding_size: 128
+  #arch: "dot"
+  #embedding_size: 32
+  pretrained: 1
+  hl: 256
+  num_layers: 2
+  dropout: 0.0
+  heuristic_feats: 0
+...
