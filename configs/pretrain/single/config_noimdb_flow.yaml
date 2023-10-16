@@ -1,0 +1,75 @@
+%YAML 1.2
+---
+split_kind : "query" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : 1
+seed : 1
+ignore_node_feats: ""
+
+max_set_len : 50000
+num_bins : 500
+
+latent_variable: 0
+num_latents: 128
+latent_inference: 0
+
+traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
+
+#tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
+
+#tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch"
+tags: "exp9_single_tpch"
+#tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch,exp7_single_ceb2"
+
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+eval_tags : "exp2_single"
+
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 8
+  subplan_ests: 0
+  dropout : 0.2
+  pretrained: 0
+
+#hist_net:
+  #arch: "transformer"
+  #pretrained : 0
+  #save_weights: 1
+  #max_pool: 0
+  #hl: 32
+  #num_layers: 2
+  #num_heads: 16
+  #dropout: 0.2
+
+sys_net:
+  # mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  save_weights: 1
+
+  #pretrained_fn: "models4/noimdb_noactual.wt"
+  pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
+
+  max_pool: 0
+  hl: 512
+  num_layers: 4
+  num_heads: 16
+  log_prev_secs: 600
+  log_skip: 2
+  dropout: 0.2
+
+factorized_net:
+  #arch: "mlp" # dot product
+  arch: "flow"
+  embedding_size: 32
+
+  pretrained: 0
+  hl: 256
+  num_layers: 2
+  dropout: 0.2
+  heuristic_feats: 0
+...

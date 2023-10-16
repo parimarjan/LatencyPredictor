@@ -2,6 +2,9 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv,GATConv
 from torch import nn
+import pyro
+import pyro.distributions as dist
+import pyro.distributions.transforms as T
 import pdb
 
 from latency_predictor.transformer import RegressionTransformer
@@ -97,27 +100,28 @@ class FactorizedLatencyNet(torch.nn.Module):
             self.hist_net.to(device)
 
         self.heuristic_feats = False
+
+        if cfg["sys_net"]["arch"] == "avg":
+            emb_size = cfg["factorized_net"]["embedding_size"] + \
+                        num_sys_features
+        elif not hasattr(self, "sys_net"):
+            emb_size = cfg["factorized_net"]["embedding_size"]
+        else:
+            emb_size = cfg["factorized_net"]["embedding_size"]*2
+
+        if "hist_net" in cfg:
+            emb_size += cfg["factorized_net"]["embedding_size"]
+
+        if cfg["latent_variable"] == 1:
+            emb_size = emb_size + cfg["num_latents"]
+
+        if cfg["factorized_net"]["heuristic_feats"]:
+            emb_size += len(HEURISTIC_FEATS)
+            self.heuristic_feats = True
+            self.heuristic_do = nn.Dropout(p=0.2)
+            cfg["factorized_net"]["dropout"] = 0.0
+
         if cfg["factorized_net"]["arch"] == "mlp":
-            if cfg["sys_net"]["arch"] == "avg":
-                emb_size = cfg["factorized_net"]["embedding_size"] + \
-                            num_sys_features
-            elif not hasattr(self, "sys_net"):
-                emb_size = cfg["factorized_net"]["embedding_size"]
-            else:
-                emb_size = cfg["factorized_net"]["embedding_size"]*2
-
-            if "hist_net" in cfg:
-                emb_size += cfg["factorized_net"]["embedding_size"]
-
-            if cfg["latent_variable"] == 1:
-                emb_size = emb_size + cfg["num_latents"]
-
-            if cfg["factorized_net"]["heuristic_feats"]:
-                emb_size += len(HEURISTIC_FEATS)
-                self.heuristic_feats = True
-                self.heuristic_do = nn.Dropout(p=0.2)
-                cfg["factorized_net"]["dropout"] = 0.0
-
             if cfg["factorized_net"]["num_layers"] == 0:
                 self.fact_net = nn.Sequential(
                     nn.Linear(emb_size, 1, bias=True),
@@ -151,26 +155,41 @@ class FactorizedLatencyNet(torch.nn.Module):
         elif cfg["factorized_net"]["arch"] == "dot":
             pass
 
+        elif cfg["factorized_net"]["arch"] == "flow":
+            # Define the distributions
+            base_dist = dist.Normal(torch.zeros(1),
+                    torch.ones(1))
+
+            # Define multiple flow layers
+            n_layers = cfg["factorized_net"]["num_layers"]
+            self.transforms = [T.conditional_spline(1,
+                context_dim=emb_size,
+                count_bins=6,
+                # order="quadratic",
+                bound=20.0,
+                )
+                for _ in range(n_layers)]
+
+            self.dist_y_given_x = dist.ConditionalTransformedDistribution(base_dist,
+                    self.transforms)
+
     def forward(self, data):
         fact_inps = []
         xplan = self.gcn_net(data)
+        if len(xplan.shape) == 1:
+            xplan = xplan.unsqueeze(dim=1)
         fact_inps.append(xplan.squeeze())
+
         if hasattr(self, "sys_net") and self.sys_net != None:
             xsys = self.sys_net(data)
             fact_inps.append(xsys)
 
         if hasattr(self, "hist_net"):
             xhist = self.hist_net(data)
+            fact_inps.append(xhist)
 
-        if len(xplan.shape) == 1:
-            xplan = xplan.unsqueeze(dim=1)
 
         if self.fact_arch == "mlp":
-            # xplan = xplan.squeeze()
-            # fact_inps = [xsys, xplan]
-            if hasattr(self, "hist_net"):
-                fact_inps.append(xhist)
-
             if self.latent_variable:
                 batch_size = xplan.size(0)
                 assert batch_size != 1
@@ -187,6 +206,14 @@ class FactorizedLatencyNet(torch.nn.Module):
                 emb_out = torch.cat([emb_out, hfeats], axis=-1)
 
             out = self.fact_net(emb_out)
+
+        elif self.fact_arch == "flow":
+            emb_out = torch.cat(fact_inps, axis=-1)
+            if self.heuristic_feats:
+                emb_out = self.heuristic_do(emb_out)
+                hfeats = data["heuristic_feats"].to(device)
+                emb_out = torch.cat([emb_out, hfeats], axis=-1)
+            return emb_out
 
         elif self.fact_arch == "attention":
             emb_out = torch.cat([xsys,xplan], axis=-1)

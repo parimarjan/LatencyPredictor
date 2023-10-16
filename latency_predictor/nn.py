@@ -22,6 +22,7 @@ from latency_predictor.algs import *
 import pickle
 import wandb
 from collections import defaultdict
+INFERENCE_SAMPLES=20
 
 class bcolors:
     HEADER = '\033[95m'
@@ -155,6 +156,7 @@ class NN(LatencyPredictor):
 
         for k, val in kwargs.items():
             self.__setattr__(k, val)
+        self.fact_arch = self.cfg["factorized_net"]["arch"]
 
         # self.collate_fn = collate_fn_gcn
         self.collate_fn = collate_fn_gcn2
@@ -258,6 +260,7 @@ class NN(LatencyPredictor):
         dl = self.eval_loaders[samples_type]
 
         res,y,infos = self._eval_loader(self.eval_ds[samples_type], dl)
+        assert len(res) == len(y)
         losses = []
 
         lterrs = defaultdict(list)
@@ -293,32 +296,33 @@ class NN(LatencyPredictor):
 
             if self.subplan_ests:
                 assert False
-                # yhat = yhat.squeeze()
-                # # yhat = yhat*(y != 0.0)
-                # assert y.shape == yhat.shape
-                # yhat = yhat[y != 0.0]
-                # y = y[y != 0.0]
-                # loss = self.loss_fn(yhat, y)
-                # if self.subplan_sum_loss:
-                    # ## not clear if this will add anything to it
-                    # ysum = torch.sum(yhat)
-                    # ytruesum = torch.sum(y)
-                    # loss2 = self.loss_fn(ysum, ytruesum)
-                    # loss = loss + loss2
+
+            if self.fact_arch == "flow":
+                self.optimizer.zero_grad()
+                context = yhat
+
+                # Negative log likelihood
+                ln_p_y_given_x = self.net.dist_y_given_x.\
+                        condition(context).log_prob(y.unsqueeze(dim=1))
+                nll_loss = -ln_p_y_given_x.mean()
+
+                # Update loss and gradients
+                nll_loss.backward()
+                self.optimizer.step()
+                self.net.dist_y_given_x.clear_cache()
+                epoch_losses.append(nll_loss.detach().item())
             else:
                 if len(yhat.shape) > len(y.shape):
                     yhat = yhat.squeeze()
                 assert y.shape == yhat.shape
                 loss = self.loss_fn(yhat, y)
+                self.optimizer.zero_grad()
+                loss.backward()
+                epoch_losses.append(loss.detach().item())
 
-            self.optimizer.zero_grad()
-            loss.backward()
-
-            epoch_losses.append(loss.detach().item())
-
-            if self.clip_gradient is not None:
-                clip_grad_norm_(self.net.parameters(), self.clip_gradient)
-            self.optimizer.step()
+                if self.clip_gradient is not None:
+                    clip_grad_norm_(self.net.parameters(), self.clip_gradient)
+                self.optimizer.step()
 
         if self.epoch % 2 == 0:
             print("epoch {}, loss: {}, epoch took: {}".format(\
@@ -547,8 +551,17 @@ class NN(LatencyPredictor):
             if param.requires_grad:
                 print(name)
 
-        self.optimizer = torch.optim.AdamW(self.net.parameters(), lr=self.lr,
-                weight_decay=self.weight_decay)
+        if self.fact_arch == "flow":
+            self.optimizer = torch.optim.AdamW(
+                list(self.net.parameters()) +
+                [p for t in self.net.transforms for p in t.parameters()],  # Include parameters of all transforms
+                lr=self.lr,
+                weight_decay=self.weight_decay,
+            )
+
+        else:
+            self.optimizer = torch.optim.AdamW(self.net.parameters(), lr=self.lr,
+                    weight_decay=self.weight_decay)
 
         if self.lrscheduler:
             self.optimizer = torch.optim.AdamW(self.net.parameters(),
@@ -615,6 +628,50 @@ class NN(LatencyPredictor):
                             protocol=3)
 
     def _eval_loader(self, ds, dl):
+        if self.cfg["latent_inference"]:
+            return self._eval_loader_latent(ds, dl)
+
+        res = []
+        trueys = []
+        infos = []
+
+        for di,data in enumerate(dl):
+            yhat = self.net(data)
+            y = data["y"]
+
+            if self.fact_arch != "flow":
+                if len(yhat.shape) > len(y.shape):
+                    yhat = yhat.squeeze()
+                assert yhat.shape == y.shape
+
+            for gi in range(data["graph"].num_graphs):
+                trueys.append(self.featurizer.unnormalizeY(y[gi].item()))
+                infos.append(data["info"][gi])
+
+            if self.subplan_ests:
+                assert False
+            else:
+                for gi in range(data["graph"].num_graphs):
+                    if self.fact_arch == "flow":
+                        single_context = yhat[gi].unsqueeze(0)
+                        y_samples = self.net.dist_y_given_x.\
+                                condition(single_context).sample((INFERENCE_SAMPLES,))
+                        est = self.featurizer.unnormalizeY(y_samples.mean())
+                    else:
+                        est = self.featurizer.unnormalizeY(yhat[gi].item())
+
+                    if est < MIN_EST:
+                        est = MIN_EST
+                    if est > MAX_EST:
+                        est = MAX_EST
+
+                    res.append(est)
+
+        print(f"Min: {np.min(res):.4f}, 25th Percentile: {np.percentile(res, 25):.4f}, Median: {np.median(res):.4f}, 75th Percentile: {np.percentile(res, 75):.4f}, Max: {np.max(res):.4f}")
+
+        return res,trueys,infos
+
+    def _eval_loader_latent(self, ds, dl):
         res = []
         trueys = []
         infos = []
@@ -642,8 +699,6 @@ class NN(LatencyPredictor):
         prev_instance = None
 
         for di,data in enumerate(dl):
-            # print("Batch: {}, samples: {}".format(di,
-                # data["graph"].num_graphs))
 
             cur_instance = data["info"][0]["instance"]
             if cur_instance != prev_instance and \

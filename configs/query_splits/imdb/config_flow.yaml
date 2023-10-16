@@ -1,0 +1,88 @@
+%YAML 1.2
+---
+split_kind : "query" # instances,query,...;
+random_split: "random" # random,custom
+num_instances : 1
+seed : 1
+
+max_set_len : 100
+num_bins : 25
+
+#gpu: 0
+traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
+
+latent_variable: 0
+num_latents: 128
+latent_inference: 0
+
+
+## imdb splits
+#tags: "exp1_single,exp2_single,exp3_single,exp1,exp4_ceb2,exp7_multi4,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b,exp10_multi4_1p_imdb2,exp7_single_ceb2"
+tags: "exp1_single,exp2_single,exp3_single"
+
+#tags: "exp2_stack"
+#tags: "exp10_single_zdbs"
+#tags: "exp1"
+#tags: "exp1"
+#tags: "exp8_single_stack"
+## stack splits
+#tags: "exp8_single_stack,exp2_stack,exp9_stack1,exp9_stack2"
+
+#tags: "exp2_stack"
+
+use_eval_tags : 0
+eval_dirs : "LatencyCollectorResults/new"
+#eval_tags : "exp1_single"
+eval_tags : "exp1_single,exp2_single"
+
+dataset:
+  input_train: ''
+  input_test: ''
+common:
+  batch_size: 16
+plan_net:
+  arch: "gcn"
+  hl: 512
+  num_conv_layers: 8
+  subplan_ests: 0
+  dropout : 0.2
+  pretrained: 0
+
+#hist_net:
+  ## mlp / transformer
+  #arch: "transformer"
+  #pretrained : 0
+  #save_weights: 1
+
+  #max_pool: 1
+  #hl: 512
+  #num_layers: 2
+  #num_heads: 16
+  #dropout: 0.2
+
+sys_net:
+  # avg/ mlp / transformer
+  arch: "none"
+  pretrained : 0
+  use_pretrained_norms: 0
+  save_weights: 0
+  pretrained_fn: null
+
+  max_pool: 1
+  dropout: 0.2
+
+  hl: 512
+  num_layers: 2
+  num_heads: 16
+  log_prev_secs: 600
+  log_skip: 2
+
+factorized_net:
+  arch: "flow" # dot product
+  embedding_size: 32
+  pretrained: 0
+  hl: 256
+  num_layers: 2
+  dropout: 0.2
+  heuristic_feats: 0
+...

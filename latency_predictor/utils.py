@@ -388,8 +388,8 @@ def get_plans(df):
                 prediction = model.predict(X_reshaped)
                 G.graph["heuristic_pred"] = prediction[0]
             else:
-                assert False
-                print("no model for: ", row["lt_type"])
+                # assert False
+                # print("no model for: ", row["lt_type"])
                 G.graph["heuristic_pred"] = 0.0
 
             # 1d rep

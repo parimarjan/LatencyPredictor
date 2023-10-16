@@ -166,8 +166,10 @@ class Featurizer():
 
         if self.y_normalizer == "std":
             yfn = self.cfg["sys_net"]["pretrained_fn"]
-            yfn = yfn.replace(".wt", "_ynorms.pkl")
+            if yfn is None:
+                yfn = "debug.pkl"
 
+            yfn = yfn.replace(".wt", "_ynorms.pkl")
             if cfg["sys_net"]["pretrained"]:
                 # load pretrained ys
                 with open(yfn, "rb") as f:
