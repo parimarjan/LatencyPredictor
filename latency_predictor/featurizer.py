@@ -175,6 +175,23 @@ class Featurizer():
                 with open(yfn, "rb") as f:
                     self.ynorms = pickle.load(f)
                 print("Loaded ynormalizers: ", self.ynorms)
+                ys = []
+                for G in plans:
+                    if self.log_transform_y:
+                        ys.append(np.log(G.graph["latency"]))
+                    else:
+                        ys.append(G.graph["latency"])
+                ys = np.array(ys)
+                actual_ynorms = (np.mean(ys), np.std(ys))
+                print("Actual Y normalization with mean/std: ", actual_ynorms)
+                norm_ys = (ys - self.ynorms[0]) / self.ynorms[1]
+                print("Normalized Y, Min: {}, Max: {}".format(\
+                        np.min(norm_ys), np.max(norm_ys)))
+
+                actual_norm_ys = (ys - actual_ynorms[0]) / actual_ynorms[1]
+                print("Actual Normalized Y, Min: {}, Max: {}".format(\
+                        np.min(actual_norm_ys), np.max(actual_norm_ys)))
+                # pdb.set_trace()
             else:
                 ys = []
                 for G in plans:
@@ -187,6 +204,9 @@ class Featurizer():
                 print("Y normalization with mean/std: ", self.ynorms)
                 with open(yfn, "wb") as f:
                     pickle.dump(self.ynorms, f)
+                norm_ys = (ys - self.ynorms[0]) / self.ynorms[1]
+                print("Normalized Y, Min: {}, Max: {}".format(\
+                        np.min(norm_ys), np.max(norm_ys)))
         else:
             pass
 
@@ -373,7 +393,7 @@ class Featurizer():
         '''
         # assert self.y_normalizer == "none"
         if self.log_transform_y:
-            np.log(y)
+            y = np.log(y)
 
         if self.y_normalizer == "std":
             # val = (prev_logs[key].values.mean() - m0) / m1
@@ -387,7 +407,7 @@ class Featurizer():
         '''
         # assert self.y_normalizer == "none"
         if self.log_transform_y:
-            np.exp(y)
+            y = np.exp(y)
 
         if self.y_normalizer == "std":
             y = (y*self.ynorms[1]) + self.ynorms[0]

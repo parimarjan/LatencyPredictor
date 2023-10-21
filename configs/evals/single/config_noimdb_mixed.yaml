@@ -17,8 +17,8 @@ num_bins : 100
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/new"
 #tags: "exp2_single,exp3_single,"
-#tags: "exp1_single,exp2_single,exp3_single"
-tags: "exp13_imdb"
+tags: "exp1_single,exp2_single,exp3_single"
+#tags: "exp13_imdb"
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
 eval_tags : "exp1_single,exp2_single"

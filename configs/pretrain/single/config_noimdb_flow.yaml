@@ -17,8 +17,8 @@ traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/multiple,La
 
 #tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
 
-#tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch"
-tags: "exp9_single_tpch"
+tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch"
+#tags: "exp9_single_tpch"
 #tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch,exp7_single_ceb2"
 
 use_eval_tags : 0
@@ -52,7 +52,7 @@ sys_net:
   save_weights: 1
 
   #pretrained_fn: "models4/noimdb_noactual.wt"
-  pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
+  pretrained_fn: "models4/tpch-ergast-stack_flow.wt"
 
   max_pool: 0
   hl: 512

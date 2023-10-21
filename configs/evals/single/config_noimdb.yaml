@@ -1,7 +1,8 @@
 %YAML 1.2
 ---
 #split_kind : "query" # instances,query,...;
-split_kind : "instances" # instances,query,...;
+#split_kind : "instances" # instances,query,...;
+split_kind : "instances-query" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
@@ -23,7 +24,7 @@ eval_dirs : "LatencyCollectorResults/new"
 eval_tags : "exp1_single,exp2_single"
 #eval_tags : "exp1_single"
 
-extra_training: 1
+extra_training: 0
 extra_training_frac: 0.3
 extra_training_tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch"
 
@@ -49,7 +50,8 @@ sys_net:
 
   #pretrained_fn: "models4/noimdbwk_actual.wt"
   #pretrained_fn: "models4/noimdb_actual.wt"
-  pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
+  #pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
+  pretrained_fn: "models4/tpch-ergast-stack_log.wt"
 
   max_pool: 0
   hl: 512

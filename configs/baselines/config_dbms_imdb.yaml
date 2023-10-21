@@ -37,15 +37,15 @@ traindata_dir : "LatencyCollectorResults/new"
 
 ## new:
 
-#tags: "exp10_single_zdbs,exp5_single_stats,exp8_single_stack,
-  #exp11_single_zdbs,exp9_single_tpch,
-  #exp4_single_ergast,exp1_single,exp2_single,exp3_single
-  #"
+tags: "exp10_single_zdbs,exp5_single_stats,exp8_single_stack,
+  exp11_single_zdbs,exp9_single_tpch,
+  exp4_single_ergast,exp1_single,exp2_single,exp3_single
+  "
 
 ## with exp13:imdb
-tags: "exp10_single_zdbs,exp5_single_stats,exp8_single_stack,
-  exp11_single_zdbs,exp6_single_joblight,exp9_single_tpch,
-  exp4_single_ergast,exp13_imdb"
+#tags: "exp10_single_zdbs,exp5_single_stats,exp8_single_stack,
+  #exp11_single_zdbs,exp6_single_joblight,exp9_single_tpch,
+  #exp4_single_ergast,exp13_imdb"
 
 ## background
 

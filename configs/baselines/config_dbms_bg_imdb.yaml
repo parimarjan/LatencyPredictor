@@ -1,7 +1,8 @@
 %YAML 1.2
 ---
 #split_kind : "query_dir-test_instances" # instances,query,...;
-split_kind : "query_dir" # instances,query,...;
+#split_kind : "query_dir-test_instances" # instances,query,...;
+split_kind : "query_dir-query" # instances,query,...;
 test_query_dir: "./queries/ceb-small,./queries/job"
 
 random_split: "random" # random,custom
@@ -15,12 +16,14 @@ num_bins : 25
 traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
 #traindata_dir : "LatencyCollectorResults/new"
 
+  #exp1_single,exp2_single,exp3_single,exp1,exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_i
+#mdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b
 tags: "exp10_single_zdbs,exp5_single_stats,exp8_single_stack,
-  exp11_single_zdbs,exp9_single_tpch,
-  exp4_single_ergast,exp1_single,exp2_single,exp3_single
-  "
+  exp11_single_zdbs,exp9_single_tpch,exp4_single_ergast,exp1_single,exp2_single,exp3_single,exp1,
+  exp10_multi4_1p,exp10_multi4_1p_imdb,exp10_multi4_1p_imdb2,
+  exp6_multi4,exp6_multi4b,exp7_multi4"
 
-use_eval_tags : 1
+use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/background"
 #eval_tags : "exp1"
 eval_tags: "exp10_multi4_1p,exp10_multi4_1p_imdb,exp10_multi4_1p_imdb2,exp6_multi4,exp6_multi4b,exp7_multi4"
@@ -36,6 +39,8 @@ plan_net:
   num_conv_layers: 4
   subplan_ests: 0
   dropout : 0.2
+  pretrained: 0
+
 sys_net:
   # avg/ mlp / transformer
   arch: "transformer"
@@ -44,6 +49,7 @@ sys_net:
   save_weights: 0
   pretrained_fn: null
   max_pool: 0
+  dropout: 0.0
 
   hl: 512
   num_layers: 2
@@ -58,6 +64,7 @@ factorized_net:
   #arch: "dot"
   #embedding_size: 32
   pretrained: 0
+  dropout: 0.0
   hl: 256
   num_layers: 2
 ...

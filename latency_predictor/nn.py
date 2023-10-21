@@ -325,8 +325,12 @@ class NN(LatencyPredictor):
                 self.optimizer.step()
 
         if self.epoch % 2 == 0:
-            print("epoch {}, loss: {}, epoch took: {}".format(\
-                self.epoch, np.mean(epoch_losses), time.time()-start))
+            if self.fact_arch == "flow":
+                print("epoch {}, NLL loss: {}, epoch took: {}".format(\
+                    self.epoch, np.mean(epoch_losses), time.time()-start))
+            else:
+                print("epoch {}, loss: {}, epoch took: {}".format(\
+                    self.epoch, np.mean(epoch_losses), time.time()-start))
 
         self.log(epoch_losses, "train_loss", "train")
 
@@ -346,12 +350,17 @@ class NN(LatencyPredictor):
                     self.cfg["sys_net"]["pretrained_fn"])
             print("saved sys net: ", self.cfg["sys_net"]["pretrained_fn"])
 
-            if hasattr(self.net, "fact_net"):
+            if hasattr(self.net, "fact_net") or \
+                    hasattr(self.net, "transforms"):
                 fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
                                                                      "/fact_")
-                torch.save(self.net.fact_net.state_dict(),
-                        fname)
-                # print("saved fact net: ", fname)
+                if self.fact_arch == "flow":
+                    transform_parameters = [t.state_dict() for t \
+                            in self.net.transforms]
+                    torch.save(transform_parameters, fname)
+                else:
+                    torch.save(self.net.fact_net.state_dict(),
+                            fname)
 
             if hasattr(self.net, "gcn_net"):
                 fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
@@ -420,8 +429,9 @@ class NN(LatencyPredictor):
             ):
 
         self.featurizer = featurizer
-        # self.sys_log_feats = sys_log_feats
 
+        # if self.fact_arch == "flow":
+            # assert self.featurizer.y_normalizer == "std"
         self.ds = QueryPlanDataset(train_plans,
                 sys_logs,
                 self.featurizer,
@@ -486,21 +496,37 @@ class NN(LatencyPredictor):
             for parameter in self.net.sys_net.parameters():
                 parameter.requires_grad = False
 
-            if hasattr(self.net, "fact_net") and \
+            if (hasattr(self.net, "fact_net") or \
+                    hasattr(self.net, "transforms")) and \
                     self.cfg["factorized_net"]["pretrained"]:
 
                 fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
                                                                      "/fact_")
-
                 print("Going to use pretrained factorized head from: ",
                         fname)
-                self.net.fact_net.load_state_dict(torch.load(
-                    fname,
-                    map_location="cpu",
-                    ))
 
-                for parameter in self.net.fact_net.parameters():
-                    parameter.requires_grad = False
+                if self.fact_arch == "flow":
+                    base_dist = dist.Normal(torch.zeros(1, device=device),
+                            torch.ones(1, device=device))
+                    loaded_transform_parameters = torch.load(fname,
+                            map_location="cpu")
+                    assert len(loaded_transform_parameters)==len(self.net.transforms)
+                    for t, state_dict in zip(self.net.transforms,
+                            loaded_transform_parameters):
+                        t.load_state_dict(state_dict)
+                        for parameter in t.parameters():
+                            parameter.requires_grad = False
+                    self.net.dist_y_given_x = dist.\
+                            ConditionalTransformedDistribution(base_dist,
+                                    self.net.transforms)
+                else:
+                    self.net.fact_net.load_state_dict(torch.load(
+                        fname,
+                        map_location="cpu",
+                        ))
+
+                    for parameter in self.net.fact_net.parameters():
+                        parameter.requires_grad = False
 
             if hasattr(self.net, "hist_net") and \
                     self.cfg["hist_net"]["pretrained"]:
@@ -593,7 +619,8 @@ class NN(LatencyPredictor):
                 print("saved sys net normalizers: ", rfn)
 
         for self.epoch in range(self.num_epochs):
-            if self.epoch % self.eval_epoch == 0:
+            if self.epoch % self.eval_epoch == 0 \
+                    and self.epoch != 0:
                 for st in self.eval_loaders.keys():
                     # if st == "train":
                         # continue
@@ -616,11 +643,6 @@ class NN(LatencyPredictor):
                     for bi,info in enumerate(data["info"]):
                         embeddings.append((info, xsys[bi].cpu().numpy()))
 
-        # efn = self.cfg["sys_net"]["pretrained_fn"]
-        # efn = efn.replace("models/", "embeddings/")
-        # efn = efn.replace("models2/", "embeddings/")
-        # efn = efn.replace(".wt", ".pkl")
-        # efn = "./embeddings/model_bg.pkl"
         efn = "./embeddings/avg_bg_m4.pkl"
         print("writing out embeddings to: ", efn)
         with open(efn, "wb") as f:
@@ -630,6 +652,9 @@ class NN(LatencyPredictor):
     def _eval_loader(self, ds, dl):
         if self.cfg["latent_inference"]:
             return self._eval_loader_latent(ds, dl)
+        if "finetune_inference" in self.cfg["factorized_net"] and \
+                self.cfg["factorized_net"]["finetune_inference"]:
+            return self._eval_loader_flow_finetune(ds, dl)
 
         res = []
         trueys = []
@@ -650,23 +675,129 @@ class NN(LatencyPredictor):
 
             if self.subplan_ests:
                 assert False
-            else:
-                for gi in range(data["graph"].num_graphs):
-                    if self.fact_arch == "flow":
-                        single_context = yhat[gi].unsqueeze(0)
-                        y_samples = self.net.dist_y_given_x.\
-                                condition(single_context).sample((INFERENCE_SAMPLES,))
-                        est = self.featurizer.unnormalizeY(y_samples.mean())
-                    else:
-                        est = self.featurizer.unnormalizeY(yhat[gi].item())
+            for gi in range(data["graph"].num_graphs):
+                if self.fact_arch == "flow":
+                    single_context = yhat[gi].unsqueeze(0)
+                    y_samples = self.net.dist_y_given_x.\
+                            condition(single_context).sample((INFERENCE_SAMPLES,))
+                    est = y_samples.mean().item()
+                    est = self.featurizer.unnormalizeY(est)
+                else:
+                    est = self.featurizer.unnormalizeY(yhat[gi].item())
 
-                    if est < MIN_EST:
-                        est = MIN_EST
-                    if est > MAX_EST:
-                        est = MAX_EST
+                if est < MIN_EST:
+                    est = MIN_EST
+                if est > MAX_EST:
+                    est = MAX_EST
 
-                    res.append(est)
+                res.append(est)
 
+        print(f"True distribution, Min: {np.min(trueys):.4f}, 25th Percentile: {np.percentile(trueys, 25):.4f}, Median: {np.median(trueys):.4f}, 75th Percentile: {np.percentile(trueys, 75):.4f}, Max: {np.max(trueys):.4f}")
+
+
+        print(f"Est distribution, Min: {np.min(res):.4f}, 25th Percentile: {np.percentile(res, 25):.4f}, Median: {np.median(res):.4f}, 75th Percentile: {np.percentile(res, 75):.4f}, Max: {np.max(res):.4f}")
+
+        return res,trueys,infos
+
+    def _load_flow_net(self, fname, req_grad=False):
+        loaded_transform_parameters = torch.load(fname,
+                map_location="cpu")
+        for t, state_dict in zip(self.net.transforms,
+                loaded_transform_parameters):
+            t.load_state_dict(state_dict)
+            for parameter in t.parameters():
+                parameter.requires_grad = req_grad
+
+        base_dist = dist.Normal(torch.zeros(1, device=device),
+                torch.ones(1, device=device))
+        self.net.dist_y_given_x = dist.\
+                ConditionalTransformedDistribution(base_dist,
+                        self.net.transforms)
+
+    def _eval_loader_flow_finetune(self, ds, dl):
+        res = []
+        trueys = []
+        infos = []
+        prev_instance = None
+        assert self.fact_arch == "flow"
+
+        # fname = self.cfg["sys_net"]["pretrained_fn"].replace("/",
+                                                             # "/fact_")
+        # self._load_flow_net(fname, req_grad=True)
+
+        cur_net = copy.deepcopy(self.net)
+        # original_grad_states = set_and_store_grad_state(cur_net)
+
+        # for name, param in cur_net.named_parameters():
+            # print(name, param.requires_grad)
+            # for name2, param2 in self.net.named_parameters():
+                # if name2 == name:
+                    # print(name2, param2.requires_grad)
+
+        for di,data in enumerate(dl):
+            cur_instance = data["info"][0]["instance"]
+            if cur_instance != prev_instance and \
+                    prev_instance is not None:
+                print("going to train for new instance: ", cur_instance)
+                # self._load_flow_net(fname, req_grad=True)
+                cur_net = copy.deepcopy(self.net)
+                # original_grad_states = set_and_store_grad_state(cur_net)
+
+            prev_instance = cur_instance
+            yhat = cur_net(data)
+            y = data["y"]
+            if len(yhat.shape) > len(y.shape):
+                yhat = yhat.squeeze()
+
+            for gi in range(data["graph"].num_graphs):
+                trueys.append(self.featurizer.unnormalizeY(y[gi].item()))
+                infos.append(data["info"][gi])
+
+
+            ## training on the current batch
+            z_optimizer = torch.optim.Adam(
+                [p for t in cur_net.transforms for p in t.parameters()],
+                lr=0.0001,
+            )
+
+            # Training loop
+            epochs = 500  # Number of times to update self.Z based on this batch
+            y = y.to(device)
+            for epoch in range(epochs):
+                z_optimizer.zero_grad()
+                yhat = cur_net(data)
+                context = yhat
+                # Negative log likelihood
+                ln_p_y_given_x = cur_net.dist_y_given_x.\
+                        condition(context).log_prob(y.unsqueeze(dim=1))
+                nll_loss = -ln_p_y_given_x.mean()
+
+                # pdb.set_trace()
+                # Update loss and gradients
+                nll_loss.backward()
+                z_optimizer.step()
+                cur_net.dist_y_given_x.clear_cache()
+
+                if epoch % 25 == 0:
+                    print(f"Epoch [{epoch+1}/{epochs}], Loss: {nll_loss.item():.2f}")
+
+            ## normalizing flow sampling + prediction
+            for gi in range(data["graph"].num_graphs):
+                single_context = yhat[gi].unsqueeze(0)
+                y_samples = cur_net.dist_y_given_x.\
+                        condition(single_context).sample((INFERENCE_SAMPLES,))
+                est = self.featurizer.unnormalizeY(y_samples.mean().item())
+                if est < MIN_EST:
+                    est = MIN_EST
+                if est > MAX_EST:
+                    est = MAX_EST
+                res.append(est)
+
+        # restore_grad_state(self.net, original_grad_states)
+        # load the original fact net back
+        # self._load_flow_net(fname, req_grad=False)
+
+        # Printing the formatted distribution in one line
         print(f"Min: {np.min(res):.4f}, 25th Percentile: {np.percentile(res, 25):.4f}, Median: {np.median(res):.4f}, 75th Percentile: {np.percentile(res, 75):.4f}, Max: {np.max(res):.4f}")
 
         return res,trueys,infos
@@ -696,6 +827,7 @@ class NN(LatencyPredictor):
         # to prevent memory usage
         original_grad_states = set_and_store_grad_state(self.net,
                 exception_module_name="Z")
+
         prev_instance = None
 
         for di,data in enumerate(dl):
@@ -802,7 +934,7 @@ class NN(LatencyPredictor):
                 self.cfg["sys_net"],
                 subplan_ests=self.subplan_ests)
         dl = torch.utils.data.DataLoader(ds,
-                batch_size=self.batch_size,
+                batch_size=2,
                 drop_last=True,
                 shuffle=False, collate_fn=self.collate_fn)
         ret,_,_ = self._eval_loader(ds, dl)

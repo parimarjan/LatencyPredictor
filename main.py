@@ -42,10 +42,19 @@ def split_workload(df, cfg):
         print("Random seed: ", cfg["seed"], " Num Instances: ", inum)
         random.seed(cfg["seed"])
         orig_len = len(df)
-        filtered_df = df.groupby('instance').filter(lambda x: len(x) >= 50)
-        after_filter_len = len(filtered_df)
-        print("After filtering instance names based on len, {} --> {}"\
-                .format(orig_len, after_filter_len))
+
+        ## background case
+        if len(set(df["instance"])) > 20:
+            ## so most unique
+            num_unique_queries = int(len(set(df["qname"])) / 1.5)
+            filtered_df = df.groupby('instance').filter(lambda x: \
+                    len(set(x["qname"])) >= num_unique_queries)
+
+            after_filter_len = len(filtered_df)
+            print("After filtering instance names based on len, {} --> {}"\
+                    .format(orig_len, after_filter_len))
+        else:
+            filtered_df = df
 
         instances = list(set(filtered_df["instance"]))
         instances.sort()
@@ -54,10 +63,14 @@ def split_workload(df, cfg):
             test_lts = TEST_INSTANCE_TYPES
             tmp = df[df["lt_type"].isin(test_lts)]
             test_qinstances = list(set(tmp["instance"]))
+            # choose an instance which has seen all the queries
             rem_instances = [q for q in instances if q not in test_qinstances]
+            print("Number of test instances: ", len(test_qinstances))
+            print("Number of remaining instances: ", len(rem_instances))
             train_qinstances = random.sample(rem_instances, inum)
-        else:
             train_qinstances = random.sample(instances, inum)
+            assert train_qinstances[0] in instances
+        else:
             test_qinstances = [q for q in instances if q not in
                     train_qinstances]
 
@@ -68,13 +81,17 @@ def split_workload(df, cfg):
         test_df = df[df["instance"].isin(test_qinstances)]
 
         if "query" in split_kind:
-            random.seed(cfg["seed"])
+            # random.seed(cfg["seed"])
+            random.seed(42)
             qnames = list(set(train_df["qname"]))
+            qnames.sort()
             # split into train / test data
             test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
             train_qnames = [q for q in qnames if q not in test_qnames]
             train_df = train_df[train_df["qname"].isin(train_qnames)]
             test_df = test_df[test_df["qname"].isin(test_qnames)]
+            # print(len(test_df))
+            # pdb.set_trace()
 
     elif split_kind in ["lt_type"]:
         print("Random seed: ", cfg["seed"], " Num Instances: ", inum)
@@ -102,7 +119,8 @@ def split_workload(df, cfg):
         train_df = df[df["lt_type"].isin(train_qinstances)]
         test_df = df[df["lt_type"].isin(test_qinstances)]
 
-    elif split_kind in ["query_dir", "query_dir-test_instances"]:
+    elif split_kind in ["query_dir", "query_dir-test_instances",
+            "query_dir-query", "query_dir-test_instances-query"]:
         test_qdir = cfg["test_query_dir"].split(",")
         train_df = df[~df["query_dir"].isin(test_qdir)]
         test_df = df[df["query_dir"].isin(test_qdir)]
@@ -110,6 +128,18 @@ def split_workload(df, cfg):
         if "test_instances" in split_kind or USE_TEST_INSTANCES:
             train_df = train_df[train_df["lt_type"].isin(TEST_INSTANCE_TYPES)]
             test_df = test_df[test_df["lt_type"].isin(TEST_INSTANCE_TYPES)]
+
+
+        if split_kind in ["query_dir-query", "query_dir-test_instances-query"]:
+            random.seed(42)
+            qnames = list(set(test_df["qname"]))
+            qnames.sort()
+            test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
+            # train_qnames = [q for q in qnames if q not in test_qnames]
+            # train_df = train_df[train_df["qname"].isin(train_qnames)]
+            test_df = test_df[test_df["qname"].isin(test_qnames)]
+            # print(len(test_df))
+            # pdb.set_trace()
 
     elif split_kind == "query":
         random.seed(cfg["seed"])
@@ -222,6 +252,7 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
     if len(truey) > len(ests):
         truey = truey[0:len(ests)]
 
+
     ests = np.array(ests)
     truey = np.array(truey)
 
@@ -331,6 +362,9 @@ def read_flags():
     parser.add_argument("--factorized_net_arch", type=str,
             required=False,
             default=None, help="")
+    parser.add_argument("--factorized_net_finetune_inference", type=int,
+            required=False,
+            default=None, help="")
 
     parser.add_argument("--sys_net_pretrained_fn", type=str,
             required=False,
@@ -381,7 +415,7 @@ def read_flags():
             default=0)
 
     parser.add_argument("--y_normalizer", type=str, required=False,
-            default="none", help="none,std,min-max; normalization scheme for target values")
+            default="", help="none,std,min-max; normalization scheme for target values")
     parser.add_argument("--normalizer", type=str, required=False,
             default="std", help="none,std,min-max; normalization scheme for features.")
 
@@ -398,7 +432,7 @@ def read_flags():
             default=None, help="additional tags for wandb logs")
 
     parser.add_argument("--log_transform_y", type=int, required=False,
-            default=0, help="predicting log(latency) instead of latency")
+            default=1, help="predicting log(latency) instead of latency")
 
     parser.add_argument("--result_dir", type=str, required=False,
             default="results",
@@ -410,7 +444,7 @@ def read_flags():
             default=None, help="seed for train/test split")
 
     parser.add_argument("--test_size", type=float, required=False,
-            default=0.3)
+            default=0.5)
 
     ## NN parameters
     parser.add_argument("--lr", type=float, required=False,
@@ -456,6 +490,7 @@ def load_dfs(dirs, tags):
 
     for curdir in dirs:
         for tag in tags:
+            tag = tag.replace(" ", "")
             cdf,clogs = load_all_logs(tag, curdir,
                     skip_timeouts=args.skip_timeouts)
 
@@ -539,7 +574,6 @@ def main():
     print("Using tags: ", cfg["tags"].split(","))
 
     df,sys_logs = load_dfs(cfg["traindata_dir"], cfg["tags"])
-    #df = df[df["runtime"] > 2.0]
 
     train_df, test_df = split_workload(df, cfg)
     if "extra_training" in cfg and cfg["extra_training"]:
@@ -555,6 +589,7 @@ def main():
 
     print("Train instance types: ", set(train_df["lt_type"]))
     print("Test instance types: ", set(test_df["lt_type"]))
+
     train_qnames = set(train_df["qname"])
     test_qnames = set(test_df["qname"])
 
@@ -566,10 +601,8 @@ def main():
             df = df[df["lt_type"].isin(test_lts)]
 
         sys_logs.update(sys_logs2)
-
         seendf = df[df["qname"].isin(train_qnames)]
         unseendf = df[~df["qname"].isin(train_qnames)]
-
         new_env_seen_plans = get_plans(seendf)
         new_env_unseen_plans = get_plans(unseendf)
     else:
@@ -589,8 +622,8 @@ New Env Unseen Plans: {}".format(
     elif args.feat_normalization_data == "all":
         feat_plans = train_plans + test_plans + new_env_seen_plans + new_env_unseen_plans
 
-    featurizer = Featurizer(train_plans + new_env_unseen_plans,
-    # featurizer = Featurizer(train_plans,
+    # featurizer = Featurizer(train_plans + new_env_unseen_plans,
+    featurizer = Featurizer(train_plans,
                             sys_logs,
                             cfg,
                             sys_seq_kind=args.sys_seq_kind,

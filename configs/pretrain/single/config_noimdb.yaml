@@ -51,7 +51,8 @@ sys_net:
   save_weights: 1
 
   #pretrained_fn: "models4/noimdb_noactual.wt"
-  pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
+  #pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
+  pretrained_fn: "models4/tpch-ergast-stack_log2.wt"
 
   max_pool: 0
   hl: 512

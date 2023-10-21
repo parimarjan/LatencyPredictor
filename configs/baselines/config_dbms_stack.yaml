@@ -1,7 +1,8 @@
 %YAML 1.2
 ---
 #split_kind : "query_dir-test_instances" # instances,query,...;
-split_kind : "query_dir" # instances,query,...;
+#split_kind : "query_dir" # instances,query,...;
+split_kind : "query_dir-query" # instances,query,...;
 
 #split_kind : "query_dir" # instances,query,...;
 
@@ -65,6 +66,7 @@ plan_net:
   arch: "gcn"
   hl: 512
   num_conv_layers: 4
+  pretrained: 0
   subplan_ests: 0
   dropout : 0.2
 sys_net:
@@ -75,6 +77,7 @@ sys_net:
   save_weights: 0
   pretrained_fn: null
   max_pool: 0
+  dropout: 0.0
 
   hl: 512
   num_layers: 2
@@ -89,6 +92,7 @@ factorized_net:
   #arch: "dot"
   #embedding_size: 32
   pretrained: 0
+  dropout: 0.0
   hl: 256
   num_layers: 2
 ...

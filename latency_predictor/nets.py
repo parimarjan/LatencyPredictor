@@ -157,21 +157,27 @@ class FactorizedLatencyNet(torch.nn.Module):
 
         elif cfg["factorized_net"]["arch"] == "flow":
             # Define the distributions
-            base_dist = dist.Normal(torch.zeros(1),
-                    torch.ones(1))
+            base_dist = dist.Normal(torch.zeros(1, device=device),
+                    torch.ones(1, device=device))
 
             # Define multiple flow layers
+            if "bound" in cfg["factorized_net"]:
+                bound = cfg["factorized_net"]["bound"]
+            else:
+                bound=10.0
+
             n_layers = cfg["factorized_net"]["num_layers"]
             self.transforms = [T.conditional_spline(1,
                 context_dim=emb_size,
                 count_bins=6,
-                # order="quadratic",
-                bound=20.0,
-                )
+                order=cfg["factorized_net"]["order"],
+                bound=bound,
+                ).to(device)
                 for _ in range(n_layers)]
 
-            self.dist_y_given_x = dist.ConditionalTransformedDistribution(base_dist,
-                    self.transforms)
+            self.dist_y_given_x = dist.\
+                    ConditionalTransformedDistribution(base_dist,
+                            self.transforms)
 
     def forward(self, data):
         fact_inps = []
@@ -187,7 +193,6 @@ class FactorizedLatencyNet(torch.nn.Module):
         if hasattr(self, "hist_net"):
             xhist = self.hist_net(data)
             fact_inps.append(xhist)
-
 
         if self.fact_arch == "mlp":
             if self.latent_variable:
