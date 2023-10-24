@@ -22,6 +22,8 @@ traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
 
 tags: "exp1_single,exp2_single,exp3_single,exp1,exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_imdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b"
 
+#tags: "exp1_single,exp2_single,exp3_single,exp1,exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_imdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b,exp4_ceb2,exp7_single_ceb2"
+
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
 eval_tags : "exp1_single,exp2_single"
@@ -39,7 +41,7 @@ common:
 plan_net:
   arch: "gcn"
   hl: 512
-  num_conv_layers: 4
+  num_conv_layers: 8
   subplan_ests: 0
   dropout : 0.0
   pretrained: 0

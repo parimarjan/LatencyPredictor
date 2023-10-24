@@ -32,9 +32,12 @@ ALL_INSTANCES = ['a1_large_gp3_4g',
  't3_large_gp2_8g',
  't3_xlarge_gp2_16g',
  't3a_medium_gp3_4g',
- 't4g_large_mag_8g']
+ 't4g_large_mag_8g',
+ 't7xlarge-gp3-d'
+ ]
 
-USE_TEST_INSTANCES = True
+# USE_TEST_INSTANCES = True
+USE_TEST_INSTANCES = False
 TEST_INSTANCE_TYPES = ["a1_large_gp3_4g", "r7g_large_gp2_16g",
         "t3a_medium_gp3_4g",
         "m6a_large_mag_8g",
@@ -337,6 +340,12 @@ def load_sys_logs(inp_dir):
 
     return curdf
 
+def num_concurrent(row, df):
+    tmp = df[(df["start_time"] <= row["start_time"]) &
+            (df["end_time"] >= row["start_time"])]
+    return len(tmp)
+
+
 def get_plans(df):
     '''
     We want plans to be sorted by <instance, timestamp>.
@@ -353,7 +362,19 @@ def get_plans(df):
     instances = set(df["instance"])
     for instance in instances:
         tmp = df[df["instance"] == instance]
-        tmp = tmp.sort_values(by="start_time", ascending=True)
+        tmp = tmp.sort_values(by="start_time",
+                ascending=True)
+        # tmp["end_time"] = tmp.apply(lambda x: x["start_time"] + x["runtime"] ,
+                # axis=1)
+        # start = time.time()
+        # tmp["num_concurrent"] = tmp.apply(lambda x: num_concurrent(x, tmp),
+                    # axis=1)
+        # if max(tmp["num_concurrent"]) > 1:
+            # print(set(tmp["tag"]))
+            # print("num concurrent took: ", time.time()-start)
+            # print(tmp["num_concurrent"].describe())
+            # pdb.set_trace()
+
         for i,row in tmp.iterrows():
             exp = row["exp_analyze"]
             try:
@@ -372,6 +393,7 @@ def get_plans(df):
             G.graph["instance"] = row["instance"]
             G.graph["lt_type"] = row["lt_type"]
             G.graph["bk_kind"] = row["bk_kind"]
+            G.graph["concurrent"] = row["concurrent"]
 
             pdata = dict(G.nodes(data=True))
             max_cost = max(subdict['TotalCost'] for subdict in
@@ -483,6 +505,23 @@ def get_bk_kind(bdf, start_time, runtime):
     vals.sort()
     return "-".join(vals)
 
+def get_bk_concurrent(bdf, start_time, runtime):
+    tmp = bdf[(bdf["timestamp"] < start_time) & \
+                (bdf["end_timestamp"] > start_time)]
+    # tmp = tmp[tmp["end_timestamp"] > start_time]
+    return len(tmp)
+    # if len(tmp) == 0:
+        # #print(tmp)
+        # return 0
+    # #tmp = tmp[tmp["timestamp"] == max(tmp["timestamp"])]
+    # #assert len(tmp) <= 1
+
+    # if len(tmp) == 0:
+        # return 0
+    # vals = list(tmp["kind"].values)
+    # vals.sort()
+    # return "-".join(vals)
+
 def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
 
     inp_dir = os.path.join(inp_dir, inp_tag)
@@ -505,6 +544,7 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
 
     for iname in instance_dirs:
         curdir = os.path.join(inp_dir, iname)
+
         if not os.path.isdir(curdir):
             continue
         # lets load the result files
@@ -569,7 +609,6 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
 
         bkfns = glob.iglob(curdir + "/results/Background*.csv")
         bdfs = []
-
         for bkfn in bkfns:
             instance_name = os.path.basename(os.path.dirname(os.path.dirname(bkfn)))
             try:
@@ -588,12 +627,23 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
             bdf = pd.concat(bdfs)
             currt["bk_kind"] = currt.apply(lambda x:
                     get_bk_kind(bdf, x["start_time"], x["runtime"]) , axis=1)
+            currt["bk_concurrent"] = currt.apply(lambda x:
+                    get_bk_concurrent(bdf, x["start_time"], x["runtime"]),
+                    axis=1)
         else:
             currt["bk_kind"] = "None"
+            currt["bk_concurrent"] = 1.0
+
+        if "new" in curdir:
+            concurrent=False
+        else:
+            concurrent=True
+
+        currt["concurrent"]  = concurrent
 
         # print("Background workloads: ", set(currt["bk_kind"]))
 
-        ## final collection
+        # final collection
         dfs.append(currt)
         all_logs[iname] = curlogs
 

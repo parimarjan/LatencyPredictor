@@ -84,6 +84,8 @@ class DBMS(LatencyPredictor):
         for plan in train_plans:
             # if plan.graph["bk_kind"] != "None":
                 # continue
+            if plan.graph["concurrent"]:
+                continue
             tags.add(plan.graph["tag"])
 
             latency = plan.graph["latency"]
@@ -92,6 +94,9 @@ class DBMS(LatencyPredictor):
             pdata = dict(plan.nodes(data=True))
             max_cost = max(subdict['TotalCost'] for subdict in
                     pdata.values())
+            if self.normy == "log":
+                latency = np.log(latency)
+                max_cost = np.log(max_cost)
 
             if self.granularity == "all":
                 costs["all"].append(max_cost)
@@ -143,10 +148,15 @@ class DBMS(LatencyPredictor):
             pdata = dict(plan.nodes(data=True))
             max_cost = max(subdict['TotalCost'] for subdict in
                     pdata.values())
+            if self.normy == "log":
+                max_cost = np.log(max_cost)
 
             model = self.linear_models[lt]
             X_reshaped = np.array([max_cost]).reshape(-1, 1)
             prediction = model.predict(X_reshaped)
-            ret.append(prediction[0])
+            if self.normy == "log":
+                ret.append(np.exp(prediction[0]))
+            else:
+                ret.append(prediction[0])
 
         return ret

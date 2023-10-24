@@ -48,7 +48,8 @@ sys_net:
   pretrained : 0
   save_weights: 1
 
-  pretrained_fn: "models4/mixed_noimdb_log.wt"
+  #pretrained_fn: "models4/mixed_noimdb_log.wt"
+  pretrained_fn: "models4/mixed_noimdb_log_nostatic.wt"
 
   max_pool: 0
   hl: 512

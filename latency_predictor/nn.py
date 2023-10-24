@@ -341,7 +341,7 @@ class NN(LatencyPredictor):
                 rfn = os.path.join(rdir, "env_net.wt")
                 torch.save(self.net.sys_net.state_dict(),
                         rfn)
-                # print("saved sys net: ", rfn)
+                print("saved sys net: ", rfn)
 
         if self.cfg["sys_net"]["save_weights"] and \
                 self.cfg["sys_net"]["arch"] == "transformer" and \
@@ -605,7 +605,7 @@ class NN(LatencyPredictor):
                     [warmup_scheduler, train_scheduler], [number_warmup_epochs])
 
         # self._save_embeddings(["train"])
-        # self._save_embeddings(["train", "test"])
+        # self._save_embeddings(["test"])
         # pdb.set_trace()
 
         if self.cfg["sys_net"]["arch"] == "transformer":
@@ -633,7 +633,6 @@ class NN(LatencyPredictor):
                 print(f"Epoch: {self.epoch+1}, Learning rate: {self.scheduler.get_last_lr()[0]}")
 
     def _save_embeddings(self, sample_types):
-
         embeddings = []
         for st in sample_types:
             dl = self.eval_loaders[st]
@@ -643,7 +642,10 @@ class NN(LatencyPredictor):
                     for bi,info in enumerate(data["info"]):
                         embeddings.append((info, xsys[bi].cpu().numpy()))
 
-        efn = "./embeddings/avg_bg_m4.pkl"
+        # efn = "./embeddings/imdb_single_avg.pkl"
+        efn = "./embeddings/imdb_single.pkl"
+        # efn = "./embeddings/imdb_all_avg.pkl"
+        # efn = "./embeddings/imdb_all.pkl"
         print("writing out embeddings to: ", efn)
         with open(efn, "wb") as f:
             pickle.dump(embeddings, f,

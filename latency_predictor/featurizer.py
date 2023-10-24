@@ -16,7 +16,7 @@ IGNORE_NODE_FEATS = ["Alias", "Filter"]
 
 HEURISTIC_FEATS = ["heuristic_cost", "heuristic_pred"]
 NUM_HIST = 30
-STATIC_FEATS=1
+STATIC_FEATS=0
 
 class Featurizer():
     def __init__(self,
@@ -363,6 +363,9 @@ class Featurizer():
         self._update_syslog_idx_positions(keys)
 
         for key in keys:
+            # if key == "CPU":
+                # print(df[key].describe())
+                # pdb.set_trace()
             if self.normalizer == "min-max":
                 # TODO: special case w/ unique value
                 if max(df[key]) - min(df[key]) == 0:

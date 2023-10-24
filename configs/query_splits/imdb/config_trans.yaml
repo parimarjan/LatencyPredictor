@@ -1,6 +1,7 @@
 %YAML 1.2
 ---
 split_kind : "query" # instances,query,...;
+#split_kind : "query-test_instances" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
@@ -47,17 +48,17 @@ plan_net:
   dropout : 0.2
   pretrained: 0
 
-hist_net:
-  # mlp / transformer
-  arch: "transformer"
-  pretrained : 0
-  save_weights: 1
+#hist_net:
+  ## mlp / transformer
+  #arch: "transformer"
+  #pretrained : 0
+  #save_weights: 1
 
-  max_pool: 1
-  hl: 512
-  num_layers: 2
-  num_heads: 16
-  dropout: 0.2
+  #max_pool: 1
+  #hl: 512
+  #num_layers: 2
+  #num_heads: 16
+  #dropout: 0.2
 
 sys_net:
   # avg/ mlp / transformer

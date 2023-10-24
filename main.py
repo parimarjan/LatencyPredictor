@@ -1,5 +1,6 @@
 import argparse
 import random
+import copy
 import time
 import ntpath
 import os
@@ -46,7 +47,9 @@ def split_workload(df, cfg):
         ## background case
         if len(set(df["instance"])) > 20:
             ## so most unique
-            num_unique_queries = int(len(set(df["qname"])) / 1.5)
+            tmp = copy.deepcopy(df)
+            tmp = tmp[~tmp["query_dir"].str.contains("ceb-small2")]
+            num_unique_queries = int(len(set(tmp["qname"])) / 1.5)
             filtered_df = df.groupby('instance').filter(lambda x: \
                     len(set(x["qname"])) >= num_unique_queries)
 
@@ -71,6 +74,7 @@ def split_workload(df, cfg):
             train_qinstances = random.sample(instances, inum)
             assert train_qinstances[0] in instances
         else:
+            train_qinstances = random.sample(instances, inum)
             test_qinstances = [q for q in instances if q not in
                     train_qinstances]
 
@@ -83,7 +87,8 @@ def split_workload(df, cfg):
         if "query" in split_kind:
             # random.seed(cfg["seed"])
             random.seed(42)
-            qnames = list(set(train_df["qname"]))
+            # qnames = list(set(train_df["qname"]))
+            qnames = list(set(test_df["qname"]))
             qnames.sort()
             # split into train / test data
             test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
@@ -141,13 +146,19 @@ def split_workload(df, cfg):
             # print(len(test_df))
             # pdb.set_trace()
 
-    elif split_kind == "query":
+    elif split_kind in ["query", "query-test_instances"]:
         random.seed(cfg["seed"])
         qnames = list(set(df["qname"]))
         qnames.sort()
         # split into train / test data
+        random.seed(42)
         test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
         train_qnames = [q for q in qnames if q not in test_qnames]
+
+        if split_kind == "query-test_instances":
+            test_lts = TEST_INSTANCE_TYPES
+            df = df[df["lt_type"].isin(test_lts)]
+            # test_qinstances = list(set(tmp["instance"]))
 
         train_df = df[df["qname"].isin(train_qnames)]
         test_df = df[df["qname"].isin(test_qnames)]
@@ -180,9 +191,11 @@ def get_alg(alg, cfg):
     if alg == "avg":
         return AvgPredictor()
     elif alg == "dbms":
-        return DBMS(granularity="lt_type")
+        return DBMS(granularity="lt_type", normy=None)
     elif alg == "dbms-all":
-        return DBMS(granularity="all")
+        return DBMS(granularity="all", normy=None)
+    elif alg == "dbms-log":
+        return DBMS(granularity="lt_type", normy="log")
     elif alg == "lc":
         return LatencyConverter(
                 cfg = cfg,
@@ -268,8 +281,22 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
                 )
         worst_idx = np.argpartition(lossarr, -4)[-4:]
         print("***Worst runtime preds for: {}***".format(str(loss_func)))
-        print("True: ", np.round(truey[worst_idx], 2))
-        print("Ests: ", np.round(ests[worst_idx], 2))
+        # Define a header for better readability
+        header = "{:<30} | {:<10} | {:<10} | {:<10}".format("Qname", "True", "Ests", "Error")
+        print(header)
+        print('-'*60)  # line separator
+
+        for idx in worst_idx:
+            qname = plans[idx].graph["qname"]
+            true_val = round(truey[idx], 2)
+            est_val = round(ests[idx], 2)
+            error_val = lossarr[idx]
+            formatted_output = "{:<30} | {:<10} | {:<10} | {:<10}".format(qname, true_val, est_val, error_val)
+            print(formatted_output)
+
+        # print("True: ", np.round(truey[worst_idx], 2))
+        # print("Ests: ", np.round(ests[worst_idx], 2))
+        # plans[worst_idx].graph
 
         for li, loss in enumerate(lossarr):
             lt_type = plans[li].graph["lt_type"]
@@ -444,7 +471,7 @@ def read_flags():
             default=None, help="seed for train/test split")
 
     parser.add_argument("--test_size", type=float, required=False,
-            default=0.5)
+            default=0.2)
 
     ## NN parameters
     parser.add_argument("--lr", type=float, required=False,

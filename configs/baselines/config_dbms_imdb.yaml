@@ -1,7 +1,8 @@
 %YAML 1.2
 ---
 #split_kind : "query_dir-test_instances" # instances,query,...;
-split_kind : "query_dir" # instances,query,...;
+#split_kind : "query_dir" # instances,query,...;
+split_kind : "query_dir-query" # instances,query,...;
 
 #split_kind : "query_dir" # instances,query,...;
 
