@@ -33,11 +33,11 @@ ALL_INSTANCES = ['a1_large_gp3_4g',
  't3_xlarge_gp2_16g',
  't3a_medium_gp3_4g',
  't4g_large_mag_8g',
- 't7xlarge-gp3-d'
+ # 't7xlarge-gp3-d'
  ]
 
-# USE_TEST_INSTANCES = True
-USE_TEST_INSTANCES = False
+USE_TEST_INSTANCES = True
+# USE_TEST_INSTANCES = False
 TEST_INSTANCE_TYPES = ["a1_large_gp3_4g", "r7g_large_gp2_16g",
         "t3a_medium_gp3_4g",
         "m6a_large_mag_8g",
@@ -49,6 +49,15 @@ TEST_INSTANCE_TYPES = ["a1_large_gp3_4g", "r7g_large_gp2_16g",
 RUNTIME_MASK = [0, 1,
                 0, 1,
                 1]
+
+def extract_template(s):
+    if len(s) >= 20:
+        return "Unknown"
+
+    match = re.search(r'(\d+)', s)
+    if match:
+        return match.group(1)
+    return None
 
 def explain_to_nx(plan):
     def recurse(G, cur_plan, cur_key, cur_node):
@@ -364,11 +373,11 @@ def get_plans(df):
         tmp = df[df["instance"] == instance]
         tmp = tmp.sort_values(by="start_time",
                 ascending=True)
-        # tmp["end_time"] = tmp.apply(lambda x: x["start_time"] + x["runtime"] ,
-                # axis=1)
-        # start = time.time()
-        # tmp["num_concurrent"] = tmp.apply(lambda x: num_concurrent(x, tmp),
-                    # axis=1)
+        tmp["end_time"] = tmp.apply(lambda x: x["start_time"] + x["runtime"] ,
+                axis=1)
+        start = time.time()
+        tmp["num_concurrent"] = tmp.apply(lambda x: num_concurrent(x, tmp),
+                    axis=1)
         # if max(tmp["num_concurrent"]) > 1:
             # print(set(tmp["tag"]))
             # print("num concurrent took: ", time.time()-start)
@@ -390,10 +399,13 @@ def get_plans(df):
             G.graph["latency"] = row["runtime"]
             G.graph["tag"] = row["tag"]
             G.graph["qname"] = row["qname"]
+            G.graph["template"] = extract_template(row["qname"])
+
             G.graph["instance"] = row["instance"]
             G.graph["lt_type"] = row["lt_type"]
             G.graph["bk_kind"] = row["bk_kind"]
             G.graph["concurrent"] = row["concurrent"]
+            G.graph["num_concurrent"] = row["num_concurrent"]
 
             pdata = dict(G.nodes(data=True))
             max_cost = max(subdict['TotalCost'] for subdict in
@@ -645,6 +657,7 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
 
         # final collection
         dfs.append(currt)
+        # all_logs[iname] = curlogs
         all_logs[iname] = curlogs
 
     if len(dfs) == 0:
@@ -732,7 +745,7 @@ def load_all_logs_linux(inp_tag, inp_dir,
                 continue
 
             currt["jobhash"] = jobhash
-            #currt["instance"] = iname
+            # currt["instance"] = iname
             curdfs.append(currt)
 
         if len(curdfs) == 0:

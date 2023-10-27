@@ -1,12 +1,12 @@
 %YAML 1.2
 ---
 #split_kind : "query" # instances,query,...;
-#split_kind : "instances" # instances,query,...;
-split_kind : "instances" # instances,query,...;
+split_kind : "instances-query" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
-
+#max_set_len : 5000
+#num_bins : 250
 latent_variable: 0
 num_latents: 128
 latent_inference: 0
@@ -15,9 +15,12 @@ max_set_len : 1000
 num_bins : 100
 
 #gpu: 0
-traindata_dir : "LatencyCollectorResults/new"
-#tags: "exp2_single,exp3_single,"
-tags: "exp1_single,exp2_single,exp3_single"
+traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
+
+#tags: "exp1_single,exp2_single,exp3_single"
+
+tags: "exp1_single,exp2_single,exp3_single,exp1,exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_imdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b"
+
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
 eval_tags : "exp1_single,exp2_single"
@@ -35,10 +38,20 @@ common:
 plan_net:
   arch: "gcn"
   hl: 512
-  num_conv_layers: 4
+  num_conv_layers: 8
   subplan_ests: 0
-  dropout : 0.0
+  dropout : 0.2
   pretrained: 0
+
+hist_net:
+  arch: "transformer"
+  pretrained : 1
+  save_weights: 1
+  max_pool: 0
+  hl: 32
+  num_layers: 2
+  num_heads: 16
+  dropout: 0.2
 
 sys_net:
   # mlp / transformer
@@ -47,13 +60,9 @@ sys_net:
   save_weights: 0
   use_pretrained_norms: 1
 
-  #pretrained_fn: "models4/noimdbwk_actual.wt"
-  #pretrained_fn: "models4/noimdb_actual.wt"
-  #pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
-  #pretrained_fn: "models4/tpch-ergast-stack_log.wt"
-  #pretrained_fn: "models4/tpch-ergast-stack_log_nostatic.wt"
-  #pretrained_fn: "models4/noimdb_log_nostatic_actual.wt"
-  pretrained_fn: "models4/noimdb_log_nostatic_logfeats.wt"
+  ## new ones
+  #pretrained_fn: "models4/mixed_noimdb_flow_log.wt"
+  pretrained_fn: "models4/mixed_noimdb_flow_hist_quad_log.wt"
 
   max_pool: 0
   hl: 512
@@ -64,14 +73,16 @@ sys_net:
   dropout: 0.2
 
 factorized_net:
-  arch: "mlp" # dot product
-  #arch: "attention"
-  embedding_size: 128
-  #arch: "dot"
-  #embedding_size: 32
-  pretrained: 1
+  #arch: "mlp" # dot product
+  #embedding_size: 128
+  arch: "flow"
+  order: "quadratic"
+  bound: 7.0
+
+  embedding_size: 32
+  pretrained: 0
   hl: 256
-  num_layers: 2
+  num_layers: 4
   dropout: 0.2
   heuristic_feats: 0
 ...

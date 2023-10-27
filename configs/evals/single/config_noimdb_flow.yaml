@@ -2,11 +2,12 @@
 ---
 #split_kind : "query" # instances,query,...;
 #split_kind : "instances" # instances,query,...;
-split_kind : "instances" # instances,query,...;
+split_kind : "instances-query" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
-
+#max_set_len : 5000
+#num_bins : 250
 latent_variable: 0
 num_latents: 128
 latent_inference: 0
@@ -50,10 +51,9 @@ sys_net:
   #pretrained_fn: "models4/noimdbwk_actual.wt"
   #pretrained_fn: "models4/noimdb_actual.wt"
   #pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
-  #pretrained_fn: "models4/tpch-ergast-stack_log.wt"
-  #pretrained_fn: "models4/tpch-ergast-stack_log_nostatic.wt"
-  #pretrained_fn: "models4/noimdb_log_nostatic_actual.wt"
-  pretrained_fn: "models4/noimdb_log_nostatic_logfeats.wt"
+  #pretrained_fn: "models4/tpch-ergast-stack_flow.wt"
+  #pretrained_fn: "models4/mixed_noimdb_flow.wt"
+  pretrained_fn: "models4/mixed_noimdb_flow_log.wt"
 
   max_pool: 0
   hl: 512
@@ -64,14 +64,18 @@ sys_net:
   dropout: 0.2
 
 factorized_net:
-  arch: "mlp" # dot product
+  #arch: "mlp" # dot product
   #arch: "attention"
-  embedding_size: 128
-  #arch: "dot"
-  #embedding_size: 32
+  arch: "flow"
+  #order: "quadratic"
+  order: "linear"
+  bound: 7.0
+  finetune_inference: 0
+
+  embedding_size: 32
   pretrained: 1
   hl: 256
-  num_layers: 2
+  num_layers: 4
   dropout: 0.2
   heuristic_feats: 0
 ...

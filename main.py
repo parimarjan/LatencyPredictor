@@ -29,7 +29,7 @@ logger.setLevel(logging.ERROR)
 def split_workload(df, cfg):
 
     if args.skip_workload is not None:
-        df = df[df["query_dir"].str.contains(args.skip_workload)]
+        df = df[~df["query_dir"].str.contains(args.skip_workload)]
         print("skipped workload: ", args.skip_workload)
 
     df = df[df["lt_type"].isin(ALL_INSTANCES)]
@@ -90,6 +90,7 @@ def split_workload(df, cfg):
             # qnames = list(set(train_df["qname"]))
             qnames = list(set(test_df["qname"]))
             qnames.sort()
+            print("All unique qnames: ", len(qnames))
             # split into train / test data
             test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
             train_qnames = [q for q in qnames if q not in test_qnames]
@@ -98,7 +99,7 @@ def split_workload(df, cfg):
             # print(len(test_df))
             # pdb.set_trace()
 
-    elif split_kind in ["lt_type"]:
+    elif split_kind in ["lt_type", "lt_type-query"]:
         print("Random seed: ", cfg["seed"], " Num Instances: ", inum)
         random.seed(cfg["seed"])
         instances = list(set(df["lt_type"]))
@@ -123,6 +124,20 @@ def split_workload(df, cfg):
 
         train_df = df[df["lt_type"].isin(train_qinstances)]
         test_df = df[df["lt_type"].isin(test_qinstances)]
+
+        if "query" in split_kind:
+            # random.seed(cfg["seed"])
+            random.seed(42)
+            # qnames = list(set(train_df["qname"]))
+            qnames = list(set(test_df["qname"]))
+            qnames.sort()
+            print("All unique qnames: ", len(qnames))
+            # pdb.set_trace()
+            # split into train / test data
+            test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
+            train_qnames = [q for q in qnames if q not in test_qnames]
+            train_df = train_df[train_df["qname"].isin(train_qnames)]
+            test_df = test_df[test_df["qname"].isin(test_qnames)]
 
     elif split_kind in ["query_dir", "query_dir-test_instances",
             "query_dir-query", "query_dir-test_instances-query"]:
@@ -150,9 +165,12 @@ def split_workload(df, cfg):
         random.seed(cfg["seed"])
         qnames = list(set(df["qname"]))
         qnames.sort()
+        print("All unique qnames: ", len(qnames))
+        # pdb.set_trace()
         # split into train / test data
         random.seed(42)
         test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
+
         train_qnames = [q for q in qnames if q not in test_qnames]
 
         if split_kind == "query-test_instances":
@@ -191,11 +209,21 @@ def get_alg(alg, cfg):
     if alg == "avg":
         return AvgPredictor()
     elif alg == "dbms":
-        return DBMS(granularity="lt_type", normy=None)
+        return DBMS(granularity="lt_type", normy=None, only_single=True)
+    elif alg == "dbms-c":
+        return DBMS(granularity="lt_type", normy=None, only_single=False)
+    elif alg == "dbms-c-log":
+        return DBMS(granularity="lt_type", normy="log", only_single=False)
     elif alg == "dbms-all":
-        return DBMS(granularity="all", normy=None)
+        return DBMS(granularity="all", normy=None, only_single=False)
     elif alg == "dbms-log":
-        return DBMS(granularity="lt_type", normy="log")
+        return DBMS(granularity="lt_type", normy="log", only_single=False)
+    elif alg == "dbms-template-log":
+        return DBMS(granularity="template", normy="log", only_single=False)
+    elif alg == "dbms-mpl":
+        return DBMS(granularity="mpl", normy=None, only_single=False)
+    elif alg == "dbms-mpl-log":
+        return DBMS(granularity="mpl", normy="log", only_single=False)
     elif alg == "lc":
         return LatencyConverter(
                 cfg = cfg,
@@ -643,6 +671,8 @@ Test queries: {}, Test Plans: {}, New Env Seen Plans: {}\
 New Env Unseen Plans: {}".format(
         len(train_qnames), len(train_plans), len(test_qnames),
         len(test_plans),len(new_env_seen_plans),len(new_env_unseen_plans)))
+
+    # pdb.set_trace()
 
     if args.feat_normalization_data == "train":
         feat_plans = train_plans

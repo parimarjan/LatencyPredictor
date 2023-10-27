@@ -1,13 +1,14 @@
 %YAML 1.2
 ---
 #split_kind : "query" # instances,query,...;
-#split_kind : "instances" # instances,query,...;
 split_kind : "instances" # instances,query,...;
+#split_kind: "instances-query"
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
-
-latent_variable: 0
+#max_set_len : 5000
+#num_bins : 250
+latent_variable: 1
 num_latents: 128
 latent_inference: 0
 
@@ -15,9 +16,14 @@ max_set_len : 1000
 num_bins : 100
 
 #gpu: 0
-traindata_dir : "LatencyCollectorResults/new"
-#tags: "exp2_single,exp3_single,"
-tags: "exp1_single,exp2_single,exp3_single"
+traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
+
+#tags: "exp1_single,exp2_single,exp3_single"
+
+tags: "exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_imdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b"
+
+#tags: "exp1_single,exp2_single,exp3_single,exp1,exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_imdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b,exp4_ceb2,exp7_single_ceb2"
+
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
 eval_tags : "exp1_single,exp2_single"
@@ -35,7 +41,7 @@ common:
 plan_net:
   arch: "gcn"
   hl: 512
-  num_conv_layers: 4
+  num_conv_layers: 8
   subplan_ests: 0
   dropout : 0.0
   pretrained: 0
@@ -50,10 +56,12 @@ sys_net:
   #pretrained_fn: "models4/noimdbwk_actual.wt"
   #pretrained_fn: "models4/noimdb_actual.wt"
   #pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
+  #pretrained_fn: "models4/mixed_noimdb_actual.wt"
+
+  ## new ones
   #pretrained_fn: "models4/tpch-ergast-stack_log.wt"
-  #pretrained_fn: "models4/tpch-ergast-stack_log_nostatic.wt"
-  #pretrained_fn: "models4/noimdb_log_nostatic_actual.wt"
-  pretrained_fn: "models4/noimdb_log_nostatic_logfeats.wt"
+  #pretrained_fn: "models4/mixed_noimdb_log.wt"
+  pretrained_fn: "models4/mixed_noimdb_log_nostatic.wt"
 
   max_pool: 0
   hl: 512

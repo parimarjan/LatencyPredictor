@@ -15,9 +15,9 @@ max_set_len : 1000
 num_bins : 100
 
 #gpu: 0
-traindata_dir : "LatencyCollectorResults/new"
+traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/concurrent"
 #tags: "exp2_single,exp3_single,"
-tags: "exp1_single,exp2_single,exp3_single"
+tags: "exp1_single,exp2_single,exp3_single,exp1-imdb-n2,exp2-imdb-n4,exp2-imdb-n8"
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
 eval_tags : "exp1_single,exp2_single"
@@ -52,8 +52,7 @@ sys_net:
   #pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
   #pretrained_fn: "models4/tpch-ergast-stack_log.wt"
   #pretrained_fn: "models4/tpch-ergast-stack_log_nostatic.wt"
-  #pretrained_fn: "models4/noimdb_log_nostatic_actual.wt"
-  pretrained_fn: "models4/noimdb_log_nostatic_logfeats.wt"
+  pretrained_fn: "models4/noimdb_log_nostatic_actual.wt"
 
   max_pool: 0
   hl: 512

@@ -1,11 +1,13 @@
 %YAML 1.2
 ---
 #split_kind : "query" # instances,query,...;
-#split_kind : "instances" # instances,query,...;
 split_kind : "instances" # instances,query,...;
+#split_kind : "instances-query" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
+#max_set_len : 5000
+#num_bins : 250
 
 latent_variable: 0
 num_latents: 128
@@ -17,7 +19,7 @@ num_bins : 100
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/new"
 #tags: "exp2_single,exp3_single,"
-tags: "exp1_single,exp2_single,exp3_single"
+tags: "exp8_single_stack"
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
 eval_tags : "exp1_single,exp2_single"
@@ -25,7 +27,7 @@ eval_tags : "exp1_single,exp2_single"
 
 extra_training: 0
 extra_training_frac: 0.3
-extra_training_tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch"
+extra_training_tags: "exp4_single_ergast,exp13_imdb,exp9_single_tpch"
 
 dataset:
   input_train: ''
@@ -47,13 +49,9 @@ sys_net:
   save_weights: 0
   use_pretrained_norms: 1
 
-  #pretrained_fn: "models4/noimdbwk_actual.wt"
-  #pretrained_fn: "models4/noimdb_actual.wt"
-  #pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
   #pretrained_fn: "models4/tpch-ergast-stack_log.wt"
-  #pretrained_fn: "models4/tpch-ergast-stack_log_nostatic.wt"
-  #pretrained_fn: "models4/noimdb_log_nostatic_actual.wt"
-  pretrained_fn: "models4/noimdb_log_nostatic_logfeats.wt"
+  #pretrained_fn: "models4/nostack_log.wt"
+  pretrained_fn: "models4/nostack_log_nostatic.wt"
 
   max_pool: 0
   hl: 512

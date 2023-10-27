@@ -15,8 +15,7 @@ latent_inference: 0
 
 traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
 
-#tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
-tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch"
+tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
 
 #tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch"
 #tags: "exp4_single_ergast,exp8_single_stack,exp9_single_tpch,exp7_single_ceb2"
@@ -56,15 +55,16 @@ sys_net:
   #pretrained_fn: "models4/tpch-ergast-stack_log2.wt"
   #pretrained_fn: "models4/tpch-ergast-stack_log_nostatic.wt"
   #pretrained_fn: "models4/noimdb_log_nostatic_actual.wt"
-  pretrained_fn: "models4/noimdb_log_nostatic_logfeats.wt"
+  #pretrained_fn: "models4/noimdb_log_nostatic_actual_maxpool.wt"
+  pretrained_fn: "models4/noimdb_nostatic_actual_maxpool.wt"
 
-  max_pool: 0
+  max_pool: 1
   hl: 512
-  num_layers: 4
-  num_heads: 16
+  num_layers: 8
+  num_heads: 32
   log_prev_secs: 600
   log_skip: 2
-  dropout: 0.2
+  dropout: 0.0
 
 factorized_net:
   arch: "mlp" # dot product

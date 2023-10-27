@@ -99,6 +99,9 @@ class Featurizer():
                 if is_float(v0):
                     # print(k, ": continuous feature")
                     cvs = [float(v0) for v0 in v]
+                    if self.log_transform_y:
+                        cvs = np.log(np.array(cvs)+0.001)
+
                     if self.normalizer == "min-max":
                         self.normalization_stats[k] = (min(cvs), max(cvs))
                     elif self.normalizer == "std":
@@ -446,6 +449,9 @@ class Featurizer():
         elif self.idx_types[key] == "cont":
             m0, m1 = self.normalization_stats[key]
             v = float(v)
+            if self.log_transform_y:
+                v = np.log(v+0.001)
+
             if self.normalizer == "min-max":
                 if (m1 - m0) == 0:
                     print("m1-m0=0 for: ", key)

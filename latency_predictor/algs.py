@@ -82,14 +82,14 @@ class DBMS(LatencyPredictor):
         tags = set()
 
         for plan in train_plans:
-            # if plan.graph["bk_kind"] != "None":
-                # continue
-            if plan.graph["concurrent"]:
+            if plan.graph["concurrent"] and self.only_single:
                 continue
+
             tags.add(plan.graph["tag"])
 
             latency = plan.graph["latency"]
             instance = plan.graph["lt_type"]
+            nc = plan.graph["num_concurrent"]
 
             pdata = dict(plan.nodes(data=True))
             max_cost = max(subdict['TotalCost'] for subdict in
@@ -101,6 +101,15 @@ class DBMS(LatencyPredictor):
             if self.granularity == "all":
                 costs["all"].append(max_cost)
                 latencies["all"].append(latency)
+            elif self.granularity == "template":
+                key = plan.graph["lt_type"] + str(plan.graph["template"])
+                costs[key].append(max_cost)
+                latencies[key].append(latency)
+
+            elif self.granularity == "mpl":
+                key = instance + str(nc)
+                costs[key].append(max_cost)
+                latencies[key].append(latency)
             else:
                 costs[instance].append(max_cost)
                 latencies[instance].append(latency)
@@ -142,6 +151,10 @@ class DBMS(LatencyPredictor):
         for plan in plans:
             if self.granularity == "all":
                 lt = "all"
+            elif self.granularity == "mpl":
+                lt = plan.graph["lt_type"] + str(plan.graph["num_concurrent"])
+            elif self.granularity == "template":
+                lt = plan.graph["lt_type"] + str(plan.graph["template"])
             else:
                 lt = plan.graph["lt_type"]
 
@@ -151,6 +164,10 @@ class DBMS(LatencyPredictor):
             if self.normy == "log":
                 max_cost = np.log(max_cost)
 
+            if lt not in self.linear_models:
+                print(self.linear_models.keys())
+                print(lt)
+                pdb.set_trace()
             model = self.linear_models[lt]
             X_reshaped = np.array([max_cost]).reshape(-1, 1)
             prediction = model.predict(X_reshaped)

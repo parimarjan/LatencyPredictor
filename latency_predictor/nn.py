@@ -337,11 +337,11 @@ class NN(LatencyPredictor):
         if hasattr(self.net, "sys_net") and self.net.sys_net != None:
             exp_name = self.get_exp_name()
             rdir = os.path.join(self.result_dir, exp_name)
-            if os.path.exists(rdir):
-                rfn = os.path.join(rdir, "env_net.wt")
-                torch.save(self.net.sys_net.state_dict(),
-                        rfn)
-                print("saved sys net: ", rfn)
+            # if os.path.exists(rdir):
+                # rfn = os.path.join(rdir, "env_net.wt")
+                # torch.save(self.net.sys_net.state_dict(),
+                        # rfn)
+                # print("saved sys net: ", rfn)
 
         if self.cfg["sys_net"]["save_weights"] and \
                 self.cfg["sys_net"]["arch"] == "transformer" and \
@@ -642,8 +642,10 @@ class NN(LatencyPredictor):
                     for bi,info in enumerate(data["info"]):
                         embeddings.append((info, xsys[bi].cpu().numpy()))
 
-        # efn = "./embeddings/imdb_single_avg.pkl"
-        efn = "./embeddings/imdb_single.pkl"
+        # efn = "./embeddings/stack_single.pkl"
+        # efn = "./embeddings/stack_single_avg.pkl"
+        efn = "./embeddings/imdb_single_avg.pkl"
+        # efn = "./embeddings/imdb_single.pkl"
         # efn = "./embeddings/imdb_all_avg.pkl"
         # efn = "./embeddings/imdb_all.pkl"
         print("writing out embeddings to: ", efn)

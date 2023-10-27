@@ -52,8 +52,8 @@ sys_net:
   #pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
   #pretrained_fn: "models4/tpch-ergast-stack_log.wt"
   #pretrained_fn: "models4/tpch-ergast-stack_log_nostatic.wt"
-  #pretrained_fn: "models4/noimdb_log_nostatic_actual.wt"
-  pretrained_fn: "models4/noimdb_log_nostatic_logfeats.wt"
+  pretrained_fn: "models4/noimdb_log_nostatic_actual.wt"
+  #pretrained_fn: "models4/noimdb_log_nostatic_logfeats.wt"
 
   max_pool: 0
   hl: 512
