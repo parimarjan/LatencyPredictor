@@ -22,7 +22,12 @@ from latency_predictor.algs import *
 import pickle
 import wandb
 from collections import defaultdict
+
 INFERENCE_SAMPLES=20
+FINETUNE_EVERY_BATCH=True
+
+SKIP_FIRST=False
+SKIP_OVERLAP=False
 
 class bcolors:
     HEADER = '\033[95m'
@@ -90,6 +95,7 @@ def collate_fn_gcn2(X):
         if len(x.shape) == 1:
             S.append(x)
         else:
+            # assert False
             if x.shape[0] >= 95:
                 # temporary
                 rows = x.shape[1]
@@ -245,14 +251,18 @@ class NN(LatencyPredictor):
                 self.net = FactorizedLatencyNet(self.cfg,
                         self.featurizer.num_features,
                         self.featurizer.num_global_features,
-                        MAX_LOG_LEN,
+                        MAX_LOG_LEN + self.featurizer.num_syslog_features,
                         self.featurizer.num_syslog_features,
                         self.layernorm,
+                        NUM_HIST,
                         )
         else:
             assert False
 
         self.net = self.net.to(device)
+
+    def plot_distributions(self, samples_type):
+        dl = self.eval_loaders[samples_type]
 
     def periodic_eval(self, samples_type):
 
@@ -274,8 +284,8 @@ class NN(LatencyPredictor):
             if "Q" in str(eval_fn) and self.epoch % 10 == 0:
                 for i,err in enumerate(errors):
                     lterrs[infos[i]["lt_type"]].append(err)
-                for lt,vals in lterrs.items():
-                    print("{}: {}".format(lt,np.round(np.mean(vals), 2)))
+                # for lt,vals in lterrs.items():
+                    # print("{}: {}".format(lt,np.round(np.mean(vals), 2)))
 
         tot_time = round(time.time()-start, 2)
         stat_update = "{}:took {}, ".format(samples_type, tot_time)
@@ -410,11 +420,11 @@ class NN(LatencyPredictor):
                     )
 
             dl = torch.utils.data.DataLoader(ds,
-                    # batch_size= self.batch_size,
-                    batch_size = 64,
+                    batch_size= self.batch_size,
+                    # batch_size = 8,
                     shuffle=False,
                     collate_fn=self.collate_fn,
-                    drop_last=True,
+                    drop_last=False,
                     # num_workers=4,
                     )
 
@@ -443,7 +453,7 @@ class NN(LatencyPredictor):
                 batch_size=self.batch_size,
                 shuffle=True,
                 collate_fn=self.collate_fn,
-                drop_last=True,
+                drop_last=False,
                 # num_workers = 4,
                 )
 
@@ -454,7 +464,7 @@ class NN(LatencyPredictor):
         self.eval_loaders["train"] = torch.utils.data.DataLoader(self.ds,
                 batch_size=self.batch_size,
                 shuffle=False, collate_fn=self.collate_fn,
-                drop_last=True,
+                drop_last=False,
                 )
 
         self.setup_workload("test", test, sys_logs)
@@ -479,6 +489,7 @@ class NN(LatencyPredictor):
 
         self._init_net()
         print(self.net)
+        # pdb.set_trace()
 
         # for name, param in self.net.named_parameters():
             # print(name, param.shape)
@@ -608,6 +619,8 @@ class NN(LatencyPredictor):
         # self._save_embeddings(["test"])
         # pdb.set_trace()
 
+        # self._plot_distributions("train")
+
         if self.cfg["sys_net"]["arch"] == "transformer":
             exp_name = self.get_exp_name()
             rdir = os.path.join(self.result_dir,
@@ -656,15 +669,45 @@ class NN(LatencyPredictor):
     def _eval_loader(self, ds, dl):
         if self.cfg["latent_inference"]:
             return self._eval_loader_latent(ds, dl)
+
+        # if "finetune_inference" in self.cfg["factorized_net"] and \
+                # self.cfg["factorized_net"]["finetune_inference"]:
+            # return self._eval_loader_flow_finetune(ds, dl)
+
         if "finetune_inference" in self.cfg["factorized_net"] and \
                 self.cfg["factorized_net"]["finetune_inference"]:
-            return self._eval_loader_flow_finetune(ds, dl)
+            return self._eval_loader_flow_latent(ds, dl)
+
+        prev_instance = None
+        latent = None
 
         res = []
         trueys = []
         infos = []
 
         for di,data in enumerate(dl):
+            if len(data["info"]) == 1:
+                continue
+            cur_instance = data["info"][0]["instance"]
+            lt_type = data["info"][0]["lt_type"]
+            if cur_instance != prev_instance and \
+                    prev_instance is not None:
+                latent = None
+
+            iset = set()
+            for curinfo in data["info"]:
+                iset.add(curinfo["instance"])
+            if len(iset) > 1 and SKIP_OVERLAP:
+                print("Skipping batch because has multiple instances: ",
+                        iset)
+                continue
+
+            prev_instance = cur_instance
+            if latent is None and SKIP_FIRST:
+                latent = 0.0
+                print("skipping first batch of instance")
+                continue
+
             yhat = self.net(data)
             y = data["y"]
 
@@ -718,6 +761,92 @@ class NN(LatencyPredictor):
                 ConditionalTransformedDistribution(base_dist,
                         self.net.transforms)
 
+    def _eval_loader_flow_latent(self, ds, dl):
+        res = []
+        trueys = []
+        infos = []
+        prev_instance = None
+        prev_lt_type = None
+        assert self.fact_arch == "flow"
+
+        latent = None
+        for di,data in enumerate(dl):
+            cur_instance = data["info"][0]["instance"]
+            lt_type = data["info"][0]["lt_type"]
+            if cur_instance != prev_instance and \
+                    prev_instance is not None:
+                latent = None
+
+            # FIXME: temporary
+            iset = set()
+            for curinfo in data["info"]:
+                iset.add(curinfo["instance"])
+            if len(iset) > 1 and SKIP_OVERLAP:
+                print("Skipping batch because has multiple instances: ",
+                        iset)
+                continue
+
+            prev_instance = cur_instance
+            y = data["y"]
+            context = self.net(data)
+
+            # FIXME: just avoiding predictions on batch 1
+            if latent is None and SKIP_FIRST:
+                cur_obs = y.to(device).unsqueeze(1)
+                assert len(self.net.transforms) == 1
+                latent = self.net.transforms[0].condition(context).inv(cur_obs)
+                print("skipping first batch of instance")
+                continue
+
+            for gi in range(data["graph"].num_graphs):
+                trueys.append(self.featurizer.unnormalizeY(y[gi].item()))
+                infos.append(data["info"][gi])
+
+            if len(context.shape) > len(y.shape):
+                context = context.squeeze()
+
+            if latent is None:
+                for gi in range(data["graph"].num_graphs):
+                    single_context = context[gi].unsqueeze(0)
+                    y_samples = self.net.dist_y_given_x.\
+                            condition(single_context).sample((INFERENCE_SAMPLES,))
+                    est = self.featurizer.unnormalizeY(y_samples.mean().item())
+                    if est < MIN_EST:
+                        est = MIN_EST
+                    if est > MAX_EST:
+                        est = MAX_EST
+                    res.append(est)
+            else:
+                ## TODO: does taking mean even make sense?
+                latent_mean = latent.mean()
+                latent_mean_filled = torch.full(latent.shape, latent_mean.item())
+                # print("Min: {}, Max: {}, Mean: {}".format(torch.min(latent),
+                    # torch.max(latent), latent_mean))
+                latent_mean_filled = latent_mean_filled.to(device)
+                yhat = self.net.transforms[0].condition(context)(latent_mean_filled)
+                for gi in range(data["graph"].num_graphs):
+                    est = self.featurizer.unnormalizeY(yhat[gi].item())
+                    if est < MIN_EST:
+                        est = MIN_EST
+                    if est > MAX_EST:
+                        est = MAX_EST
+
+                    res.append(est)
+
+            # we always want to do this so the latent is being updated on the
+            # previous batch;
+            # assuming only one layer of transforms
+            cur_obs = y.to(device).unsqueeze(1)
+            assert len(self.net.transforms) == 1
+            latent = self.net.transforms[0].condition(context).inv(cur_obs)
+
+        print(f"True distribution, Min: {np.min(trueys):.4f}, 25th Percentile: {np.percentile(trueys, 25):.4f}, Median: {np.median(trueys):.4f}, 75th Percentile: {np.percentile(trueys, 75):.4f}, Max: {np.max(trueys):.4f}")
+
+
+        print(f"Min: {np.min(res):.4f}, 25th Percentile: {np.percentile(res, 25):.4f}, Median: {np.median(res):.4f}, 75th Percentile: {np.percentile(res, 75):.4f}, Max: {np.max(res):.4f}")
+
+        return res,trueys,infos
+
     def _eval_loader_flow_finetune(self, ds, dl):
         res = []
         trueys = []
@@ -730,60 +859,25 @@ class NN(LatencyPredictor):
         # self._load_flow_net(fname, req_grad=True)
 
         cur_net = copy.deepcopy(self.net)
-        # original_grad_states = set_and_store_grad_state(cur_net)
 
-        # for name, param in cur_net.named_parameters():
-            # print(name, param.requires_grad)
-            # for name2, param2 in self.net.named_parameters():
-                # if name2 == name:
-                    # print(name2, param2.requires_grad)
-
+        cur_trained = False
         for di,data in enumerate(dl):
             cur_instance = data["info"][0]["instance"]
             if cur_instance != prev_instance and \
                     prev_instance is not None:
-                print("going to train for new instance: ", cur_instance)
-                # self._load_flow_net(fname, req_grad=True)
+                # print("going to train for new instance: ", cur_instance)
                 cur_net = copy.deepcopy(self.net)
-                # original_grad_states = set_and_store_grad_state(cur_net)
+                cur_trained = False
 
             prev_instance = cur_instance
-            yhat = cur_net(data)
             y = data["y"]
-            if len(yhat.shape) > len(y.shape):
-                yhat = yhat.squeeze()
-
             for gi in range(data["graph"].num_graphs):
                 trueys.append(self.featurizer.unnormalizeY(y[gi].item()))
                 infos.append(data["info"][gi])
 
-
-            ## training on the current batch
-            z_optimizer = torch.optim.Adam(
-                [p for t in cur_net.transforms for p in t.parameters()],
-                lr=0.0001,
-            )
-
-            # Training loop
-            epochs = 500  # Number of times to update self.Z based on this batch
-            y = y.to(device)
-            for epoch in range(epochs):
-                z_optimizer.zero_grad()
-                yhat = cur_net(data)
-                context = yhat
-                # Negative log likelihood
-                ln_p_y_given_x = cur_net.dist_y_given_x.\
-                        condition(context).log_prob(y.unsqueeze(dim=1))
-                nll_loss = -ln_p_y_given_x.mean()
-
-                # pdb.set_trace()
-                # Update loss and gradients
-                nll_loss.backward()
-                z_optimizer.step()
-                cur_net.dist_y_given_x.clear_cache()
-
-                if epoch % 25 == 0:
-                    print(f"Epoch [{epoch+1}/{epochs}], Loss: {nll_loss.item():.2f}")
+            yhat = cur_net(data)
+            if len(yhat.shape) > len(y.shape):
+                yhat = yhat.squeeze()
 
             ## normalizing flow sampling + prediction
             for gi in range(data["graph"].num_graphs):
@@ -796,6 +890,34 @@ class NN(LatencyPredictor):
                 if est > MAX_EST:
                     est = MAX_EST
                 res.append(est)
+
+            if not cur_trained or FINETUNE_EVERY_BATCH:
+                ## training on the current batch
+                z_optimizer = torch.optim.Adam(
+                    [p for t in cur_net.transforms for p in t.parameters()],
+                    lr=0.001,
+                )
+
+                # Training loop
+                epochs = 75
+                y = y.to(device)
+                for epoch in range(epochs):
+                    z_optimizer.zero_grad()
+                    context = cur_net(data)
+                    # Negative log likelihood
+                    ln_p_y_given_x = cur_net.dist_y_given_x.\
+                            condition(context).log_prob(y.unsqueeze(dim=1))
+                    nll_loss = -ln_p_y_given_x.mean()
+
+                    # pdb.set_trace()
+                    # Update loss and gradients
+                    nll_loss.backward()
+                    z_optimizer.step()
+                    cur_net.dist_y_given_x.clear_cache()
+
+                    # if epoch % 25 == 0:
+                        # print(f"Epoch [{epoch+1}/{epochs}], Loss: {nll_loss.item():.2f}")
+                cur_trained = True
 
         # restore_grad_state(self.net, original_grad_states)
         # load the original fact net back
@@ -852,6 +974,7 @@ class NN(LatencyPredictor):
 
             yhat = self.net(data)
             y = data["y"]
+
             if len(yhat.shape) > len(y.shape):
                 yhat = yhat.squeeze()
 
@@ -931,7 +1054,7 @@ class NN(LatencyPredictor):
 
         return res,trueys,infos
 
-    def test(self, plans, sys_logs):
+    def test(self, plans, sys_logs, samples_type=None):
         ds = QueryPlanDataset(plans,
                 sys_logs,
                 self.featurizer,

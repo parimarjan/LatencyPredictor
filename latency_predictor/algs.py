@@ -76,6 +76,7 @@ class DBMS(LatencyPredictor):
     def train(self, train_plans, sys_logs, featurizer,
             **kwargs):
 
+        self.featurizer = featurizer
         self.linear_models = {}
         costs = defaultdict(list)
         latencies = defaultdict(list)
@@ -147,6 +148,9 @@ class DBMS(LatencyPredictor):
     def test(self, plans, sys_logs, **kwargs):
         '''
         '''
+        if self.fit_test and "unseen" not in kwargs["samples_type"]:
+            self.train(plans, sys_logs, self.featurizer)
+
         ret = []
         for plan in plans:
             if self.granularity == "all":

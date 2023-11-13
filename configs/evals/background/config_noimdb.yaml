@@ -1,14 +1,15 @@
 %YAML 1.2
 ---
 #split_kind : "query" # instances,query,...;
-split_kind : "instances" # instances,query,...;
-#split_kind: "instances-query"
+#split_kind : "instances" # instances,query,...;
+split_kind: "instances-query"
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
 #max_set_len : 5000
 #num_bins : 250
-latent_variable: 1
+
+latent_variable: 0
 num_latents: 128
 latent_inference: 0
 
@@ -20,7 +21,7 @@ traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
 
 #tags: "exp1_single,exp2_single,exp3_single"
 
-tags: "exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_imdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b"
+tags: "exp1,exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_imdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b"
 
 #tags: "exp1_single,exp2_single,exp3_single,exp1,exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_imdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b,exp4_ceb2,exp7_single_ceb2"
 
@@ -43,7 +44,7 @@ plan_net:
   hl: 512
   num_conv_layers: 8
   subplan_ests: 0
-  dropout : 0.0
+  dropout : 0.2
   pretrained: 0
 
 sys_net:
@@ -61,7 +62,8 @@ sys_net:
   ## new ones
   #pretrained_fn: "models4/tpch-ergast-stack_log.wt"
   #pretrained_fn: "models4/mixed_noimdb_log.wt"
-  pretrained_fn: "models4/mixed_noimdb_log_nostatic.wt"
+  #pretrained_fn: "models4/mixed_noimdb_log_nostatic.wt"
+  pretrained_fn: "models4/mixed_noimdb_log_nostatic_logfeats.wt"
 
   max_pool: 0
   hl: 512
@@ -69,14 +71,14 @@ sys_net:
   num_heads: 16
   log_prev_secs: 600
   log_skip: 2
-  dropout: 0.2
+  dropout: 0.0
 
 factorized_net:
   arch: "mlp" # dot product
   #arch: "attention"
-  embedding_size: 128
+  #embedding_size: 128
   #arch: "dot"
-  #embedding_size: 32
+  embedding_size: 32
   pretrained: 1
   hl: 256
   num_layers: 2

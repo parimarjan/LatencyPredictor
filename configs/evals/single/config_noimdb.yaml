@@ -2,7 +2,8 @@
 ---
 #split_kind : "query" # instances,query,...;
 #split_kind : "instances" # instances,query,...;
-split_kind : "instances" # instances,query,...;
+#split_kind : "instances" # instances,query,...;
+split_kind : "instances-query" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
@@ -53,7 +54,9 @@ sys_net:
   #pretrained_fn: "models4/tpch-ergast-stack_log.wt"
   #pretrained_fn: "models4/tpch-ergast-stack_log_nostatic.wt"
   #pretrained_fn: "models4/noimdb_log_nostatic_actual.wt"
-  pretrained_fn: "models4/noimdb_log_nostatic_logfeats.wt"
+  #pretrained_fn: "models4/noimdb_log_nostatic_logfeats.wt"
+
+  pretrained_fn: "models4/mixed_noimdb_log_nostatic.wt"
 
   max_pool: 0
   hl: 512

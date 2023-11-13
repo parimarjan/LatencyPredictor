@@ -32,6 +32,7 @@ def split_workload(df, cfg):
         df = df[~df["query_dir"].str.contains(args.skip_workload)]
         print("skipped workload: ", args.skip_workload)
 
+    test_df_unseen = []
     df = df[df["lt_type"].isin(ALL_INSTANCES)]
 
     split_kind = cfg.get("split_kind", "instance")
@@ -45,20 +46,28 @@ def split_workload(df, cfg):
         orig_len = len(df)
 
         ## background case
-        if len(set(df["instance"])) > 20:
+        # if len(set(df["instance"])) > 20:
+        if "background" in args.config:
             ## so most unique
             tmp = copy.deepcopy(df)
             tmp = tmp[~tmp["query_dir"].str.contains("ceb-small2")]
-            num_unique_queries = int(len(set(tmp["qname"])) / 1.5)
-            filtered_df = df.groupby('instance').filter(lambda x: \
-                    len(set(x["qname"])) >= num_unique_queries)
+            if "stack" in df["query_dir"].values[0]:
+                num_unique_queries = int(len(set(tmp["qname"])))
+                filtered_df = df.groupby('instance').filter(lambda x: \
+                        len(set(x["qname"])) >= num_unique_queries)
+            else:
+                num_unique_queries = int(len(set(tmp["qname"])) / 2.0)
+                filtered_df = df.groupby('instance').filter(lambda x: \
+                        len(set(x["qname"])) >= num_unique_queries)
+            num_instances = len(set(filtered_df["instance"]))
 
             after_filter_len = len(filtered_df)
-            print("After filtering instance names based on len, {} --> {}"\
-                    .format(orig_len, after_filter_len))
+            print("After filtering instance names based on len, {} --> {}. Instances: {}"\
+                    .format(orig_len, after_filter_len, num_instances))
         else:
             filtered_df = df
 
+        all_instances = set(df["instance"])
         instances = list(set(filtered_df["instance"]))
         instances.sort()
 
@@ -75,7 +84,7 @@ def split_workload(df, cfg):
             assert train_qinstances[0] in instances
         else:
             train_qinstances = random.sample(instances, inum)
-            test_qinstances = [q for q in instances if q not in
+            test_qinstances = [q for q in all_instances if q not in
                     train_qinstances]
 
         print("Training instances: ", train_qinstances)
@@ -87,6 +96,7 @@ def split_workload(df, cfg):
         if "query" in split_kind:
             # random.seed(cfg["seed"])
             random.seed(42)
+            # random.seed(1)
             # qnames = list(set(train_df["qname"]))
             qnames = list(set(test_df["qname"]))
             qnames.sort()
@@ -95,7 +105,10 @@ def split_workload(df, cfg):
             test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
             train_qnames = [q for q in qnames if q not in test_qnames]
             train_df = train_df[train_df["qname"].isin(train_qnames)]
-            test_df = test_df[test_df["qname"].isin(test_qnames)]
+            test_df_unseen = test_df[test_df["qname"].isin(test_qnames)]
+            test_df = test_df[test_df["qname"].isin(train_qnames)]
+
+            # print(len(test_df_unseen))
             # print(len(test_df))
             # pdb.set_trace()
 
@@ -157,7 +170,7 @@ def split_workload(df, cfg):
             test_qnames = random.sample(qnames, int(len(qnames)*args.test_size))
             # train_qnames = [q for q in qnames if q not in test_qnames]
             # train_df = train_df[train_df["qname"].isin(train_qnames)]
-            test_df = test_df[test_df["qname"].isin(test_qnames)]
+            test_df_unseen = test_df[test_df["qname"].isin(test_qnames)]
             # print(len(test_df))
             # pdb.set_trace()
 
@@ -183,7 +196,7 @@ def split_workload(df, cfg):
     else:
         assert False
 
-    return train_df,test_df
+    return train_df,test_df,test_df_unseen
 
 def parse_args_any(args):
     pos = []
@@ -209,21 +222,29 @@ def get_alg(alg, cfg):
     if alg == "avg":
         return AvgPredictor()
     elif alg == "dbms":
-        return DBMS(granularity="lt_type", normy=None, only_single=True)
+        return DBMS(fit_test=True,
+                granularity="lt_type", normy=None, only_single=True)
     elif alg == "dbms-c":
-        return DBMS(granularity="lt_type", normy=None, only_single=False)
+        return DBMS(fit_test=True,
+                granularity="lt_type", normy=None, only_single=False)
     elif alg == "dbms-c-log":
-        return DBMS(granularity="lt_type", normy="log", only_single=False)
+        return DBMS(fit_test=True,
+                granularity="lt_type", normy="log", only_single=False)
     elif alg == "dbms-all":
-        return DBMS(granularity="all", normy=None, only_single=False)
+        return DBMS(fit_test=True,
+                granularity="all", normy=None, only_single=False)
     elif alg == "dbms-log":
-        return DBMS(granularity="lt_type", normy="log", only_single=False)
+        return DBMS(fit_test=True,
+                granularity="lt_type", normy="log", only_single=False)
     elif alg == "dbms-template-log":
-        return DBMS(granularity="template", normy="log", only_single=False)
+        return DBMS(fit_test=True,
+                granularity="template", normy="log", only_single=False)
     elif alg == "dbms-mpl":
-        return DBMS(granularity="mpl", normy=None, only_single=False)
+        return DBMS(fit_test=True,
+                granularity="mpl", normy=None, only_single=False)
     elif alg == "dbms-mpl-log":
-        return DBMS(granularity="mpl", normy="log", only_single=False)
+        return DBMS(fit_test=True,
+                granularity="mpl", normy="log", only_single=False)
     elif alg == "lc":
         return LatencyConverter(
                 cfg = cfg,
@@ -286,7 +307,7 @@ def eval_alg(alg, loss_funcs, plans, sys_logs, samples_type):
     exp_name = alg.get_exp_name()
     start = time.time()
 
-    ests = alg.test(plans, sys_logs)
+    ests = alg.test(plans, sys_logs, samples_type=samples_type)
     truey = [plan.graph["latency"] for plan in plans]
 
     ## could be because of drop_last=True
@@ -391,7 +412,7 @@ def read_flags():
 
     parser.add_argument("--batch_size", type=int,
             required=False,
-            default=16, help="")
+            default=64, help="")
     parser.add_argument("--config", type=str, required=False,
             default="config.yaml", help="")
     parser.add_argument("--skip_workload", type=str, required=False,
@@ -503,7 +524,7 @@ def read_flags():
 
     ## NN parameters
     parser.add_argument("--lr", type=float, required=False,
-            default=0.00001)
+            default=0.0001)
     parser.add_argument("--weight_decay", type=float, required=False,
             default=0.1)
     parser.add_argument("--hl1", type=int, required=False,
@@ -511,9 +532,9 @@ def read_flags():
     parser.add_argument("--num_conv_layers", type=int, required=False,
             default=4)
     parser.add_argument("--eval_epoch", type=int, required=False,
-            default=2)
+            default=10)
     parser.add_argument("--num_epochs", type=int, required=False,
-            default=50)
+            default=200)
 
     parser.add_argument("--alg", type=str, required=False,
             default="nn")
@@ -630,7 +651,7 @@ def main():
 
     df,sys_logs = load_dfs(cfg["traindata_dir"], cfg["tags"])
 
-    train_df, test_df = split_workload(df, cfg)
+    train_df, test_df, test_df_unseen = split_workload(df, cfg)
     if "extra_training" in cfg and cfg["extra_training"]:
         edf, esys_logs = load_dfs(cfg["traindata_dir"],
                 cfg["extra_training_tags"])
@@ -641,12 +662,20 @@ def main():
 
     train_plans = get_plans(train_df)
     test_plans = get_plans(test_df)
+    if len(test_df_unseen) != 0:
+        test_unseen_plans = get_plans(test_df_unseen)
+    else:
+        test_unseen_plans = []
 
     print("Train instance types: ", set(train_df["lt_type"]))
     print("Test instance types: ", set(test_df["lt_type"]))
 
     train_qnames = set(train_df["qname"])
     test_qnames = set(test_df["qname"])
+    if len(test_df_unseen) != 0:
+        test_unseen_qnames = set(test_df_unseen["qname"])
+    else:
+        test_unseen_qnames = set()
 
     if cfg["use_eval_tags"]:
         ## new envs
@@ -667,10 +696,10 @@ def main():
         unseendf = None
 
     print("Training queries: {}, Training plans: {},\
-Test queries: {}, Test Plans: {}, New Env Seen Plans: {}\
-New Env Unseen Plans: {}".format(
+ Test seen queries: {}, Test seen plans: {}, Test unseen queries: {}\
+ Test unseen plans: {}".format(
         len(train_qnames), len(train_plans), len(test_qnames),
-        len(test_plans),len(new_env_seen_plans),len(new_env_unseen_plans)))
+        len(test_plans),len(test_unseen_qnames),len(test_unseen_plans)))
 
     # pdb.set_trace()
 
@@ -719,7 +748,7 @@ New Env Unseen Plans: {}".format(
             featurizer,
             test = test_plans,
             new_env_seen= new_env_seen_plans,
-            new_env_unseen = new_env_unseen_plans,
+            new_env_unseen = test_unseen_plans,
             train_df = train_df,
             test_df = test_df,
             unseen_df = unseendf,
@@ -729,6 +758,9 @@ New Env Unseen Plans: {}".format(
 
     if len(test_plans) > 0:
         eval_alg(alg, eval_fns, test_plans, sys_logs, "test")
+
+    if len(test_unseen_plans) > 0:
+        eval_alg(alg, eval_fns, test_unseen_plans, sys_logs, "test_unseen")
 
     if len(new_env_seen_plans) > 0:
         eval_alg(alg, eval_fns, new_env_seen_plans, sys_logs, "new_env_seen")

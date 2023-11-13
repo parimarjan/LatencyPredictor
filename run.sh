@@ -10,13 +10,17 @@ YLOG=1
 #CONFIG=configs/evals/single/config_baseline.yaml
 #CONFIG=configs/evals/single/config_noimdb_flow.yaml
 #CONFIG=configs/evals/single/config_nostack.yaml
-CONFIG=configs/evals/all/config_noimdb.yaml
+#CONFIG=configs/evals/single/config_noimdb.yaml
+#CONFIG=configs/evals/background/config_noimdb.yaml
+CONFIG=configs/evals/background/config_noimdb2.yaml
+#CONFIG=configs/evals/background/config_baseline.yaml
 #CONFIG=configs/evals/single/config_noimdb_flow.yaml
 
-bash run_latency_tmp.sh $CONFIG 0.00001 0.1 1 300 $EXTRA $YLOG
-bash run_latency_tmp.sh $CONFIG 0.00001 0.1 2 300 $EXTRA $YLOG
-bash run_latency_tmp.sh $CONFIG 0.00001 0.1 3 300 $EXTRA $YLOG
-bash run_latency_tmp.sh $CONFIG 0.00001 0.1 4 300 $EXTRA $YLOG
+bash run_latency_tmp.sh $CONFIG 0.00001 0.1 1 150 $EXTRA $YLOG
+
+#bash run_latency_tmp.sh $CONFIG 0.00001 0.1 2 300 $EXTRA $YLOG
+#bash run_latency_tmp.sh $CONFIG 0.00001 0.1 3 300 $EXTRA $YLOG
+#bash run_latency_tmp.sh $CONFIG 0.00001 0.1 4 300 $EXTRA $YLOG
 
 #bash run_latency_tmp.sh $CONFIG 0.00001 0.1 8 300 $EXTRA $YLOG
 

@@ -1,7 +1,7 @@
 %YAML 1.2
 ---
-#split_kind : "query" # instances,query,...;
-split_kind : "query-test_instances" # instances,query,...;
+split_kind : "query" # instances,query,...;
+#split_kind : "query-test_instances" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1

@@ -48,8 +48,10 @@ sys_net:
   pretrained : 0
   save_weights: 1
 
-  #pretrained_fn: "models4/mixed_noimdb_log.wt"
+  #pretrained_fn: "models4/mixed_noimdb_log_fact8.wt"
   pretrained_fn: "models4/mixed_noimdb_log_nostatic_logfeats.wt"
+  #pretrained_fn: "models4/mixed_noimdb_log_nostatic.wt"
+  #pretrained_fn: "models4/mixed_noimdb_log_nostatic.wt"
 
   max_pool: 0
   hl: 512
@@ -61,8 +63,7 @@ sys_net:
 
 factorized_net:
   arch: "mlp" # dot product
-  embedding_size: 32
-
+  embedding_size: 128
   pretrained: 0
   hl: 256
   num_layers: 2

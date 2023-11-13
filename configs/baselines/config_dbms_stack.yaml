@@ -1,8 +1,8 @@
 %YAML 1.2
 ---
 #split_kind : "query_dir-test_instances" # instances,query,...;
-#split_kind : "query_dir" # instances,query,...;
-split_kind : "query_dir-query" # instances,query,...;
+split_kind : "query_dir" # instances,query,...;
+#split_kind : "query_dir-query" # instances,query,...;
 
 #split_kind : "query_dir" # instances,query,...;
 
@@ -21,20 +21,6 @@ num_bins : 25
 #gpu: 0
 #traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
 traindata_dir : "LatencyCollectorResults/new"
-
-#traindata_dir : "LatencyCollectorResults/new"
-#traindata_dir : "LatencyCollectorResults/background"
-
-#traindata_dir : "LatencyCollectorResults/new"
-###tags: "exp4_single_ergast,exp5_single_stats,exp6_single_joblight,exp7_single_ceb2,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs"
-
-### different splits here
-## background:
-#exp1                   exp12_multi4_tpch_stats_ergast  exp4_ceb2               exp7_multi4
-#exp10_multi4_1p_imdb   exp13_r7r6                      exp5_tpch_stats_ergast  exp8_stack_fail
-#exp10_multi4_1p_imdb2  exp2_stack                      exp6_multi4             exp9_stack1
-#exp11_multi4_stack     exp3_stack_multi1               exp6_multi4b            exp9_stack2
-
 
 ## new:
 

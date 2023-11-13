@@ -5,6 +5,7 @@ from torch import nn
 import pyro
 import pyro.distributions as dist
 import pyro.distributions.transforms as T
+from pyro.nn.dense_nn import DenseNN
 import pdb
 
 from latency_predictor.transformer import RegressionTransformer
@@ -167,8 +168,13 @@ class FactorizedLatencyNet(torch.nn.Module):
                 bound=10.0
 
             n_layers = cfg["factorized_net"]["num_layers"]
+            # hypernet = DenseNN(input_dim=emb_size,
+                    # hidden_dims=[128, 128],
+                    # param_dims=16,
+                    # nonlinearity=nn.ReLU()).to(device=device)
             self.transforms = [T.conditional_spline(1,
                 context_dim=emb_size,
+                hidden_dims=[256, 256],
                 count_bins=6,
                 order=cfg["factorized_net"]["order"],
                 bound=bound,

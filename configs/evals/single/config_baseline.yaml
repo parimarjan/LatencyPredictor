@@ -1,13 +1,13 @@
 %YAML 1.2
 ---
 #split_kind : "query" # instances,query,...;
-split_kind : "instances" # instances,query,...;
+split_kind : "instances-query" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
 #max_set_len : 5000
 #num_bins : 250
-latent_variable: 1
+latent_variable: 0
 num_latents: 128
 latent_inference: 0
 
@@ -17,8 +17,8 @@ num_bins : 100
 #gpu: 0
 traindata_dir : "LatencyCollectorResults/new"
 #tags: "exp2_single,exp3_single,"
-#tags: "exp1_single,exp2_single,exp3_single"
-tags: "exp8_single_stack"
+tags: "exp1_single,exp2_single,exp3_single"
+#tags: "exp8_single_stack"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
@@ -34,6 +34,7 @@ dataset:
   input_test: ''
 common:
   batch_size: 16
+
 plan_net:
   arch: "gcn"
   hl: 512

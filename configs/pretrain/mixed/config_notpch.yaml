@@ -16,7 +16,7 @@ latent_inference: 0
 #traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
 traindata_dir : "LatencyCollectorResults/background,LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
 
-tags: "exp1_sing,exp2_single,exp3_single,exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp11_multi4_stack,exp2_stack,exp3_stack_multi1,exp9_stack1,exp9_stack2,"
+tags: "exp1_single,exp2_single,exp3_single,exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp11_multi4_stack,exp2_stack,exp3_stack_multi1,exp9_stack1,exp9_stack2,"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
@@ -50,7 +50,7 @@ sys_net:
   save_weights: 1
 
   #pretrained_fn: "models4/mixed_noimdb_log.wt"
-  pretrained_fn: "models4/mixed_notpch_log_nostatic_logfeats.wt"
+  pretrained_fn: "models4/mixed_notpch_logfeats.wt"
 
   max_pool: 0
   hl: 512

@@ -53,9 +53,9 @@ sys_net:
   #pretrained_fn: "models4/tpch-ergast-stack_actual.wt"
   #pretrained_fn: "models4/tpch-ergast-stack_flow.wt"
   #pretrained_fn: "models4/mixed_noimdb_flow.wt"
-  pretrained_fn: "models4/mixed_noimdb_flow_log.wt"
+  pretrained_fn: "models4/mixed_noimdb_flow_quad.wt"
 
-  max_pool: 0
+  max_pool: 1
   hl: 512
   num_layers: 4
   num_heads: 16
@@ -67,15 +67,14 @@ factorized_net:
   #arch: "mlp" # dot product
   #arch: "attention"
   arch: "flow"
-  #order: "quadratic"
-  order: "linear"
+  order: "quadratic"
   bound: 7.0
-  finetune_inference: 0
+  finetune_inference: 1
 
   embedding_size: 32
   pretrained: 1
   hl: 256
-  num_layers: 4
+  num_layers: 1
   dropout: 0.2
   heuristic_feats: 0
 ...

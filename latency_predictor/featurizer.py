@@ -17,6 +17,7 @@ IGNORE_NODE_FEATS = ["Alias", "Filter"]
 HEURISTIC_FEATS = ["heuristic_cost", "heuristic_pred"]
 NUM_HIST = 30
 STATIC_FEATS=0
+LOGFEATS=True
 
 class Featurizer():
     def __init__(self,
@@ -99,7 +100,7 @@ class Featurizer():
                 if is_float(v0):
                     # print(k, ": continuous feature")
                     cvs = [float(v0) for v0 in v]
-                    if self.log_transform_y:
+                    if self.log_transform_y and LOGFEATS:
                         cvs = np.log(np.array(cvs)+0.001)
 
                     if self.normalizer == "min-max":
@@ -355,8 +356,10 @@ class Featurizer():
         for key in keys:
             if not is_float(min(df[key])):
                 continue
-            if key == "timestamp":
+            if key in ["timestamp", "CPU", "INTR"]:
                 continue
+            # if key in ["timestamp"]:
+                # continue
 
             assert key not in self.idx_starts
             newkeys.append(key)
@@ -449,7 +452,7 @@ class Featurizer():
         elif self.idx_types[key] == "cont":
             m0, m1 = self.normalization_stats[key]
             v = float(v)
-            if self.log_transform_y:
+            if self.log_transform_y and LOGFEATS:
                 v = np.log(v+0.001)
 
             if self.normalizer == "min-max":
@@ -543,7 +546,6 @@ class Featurizer():
             feature = np.zeros(self.num_syslog_features)
         else:
             feature = np.zeros((len(prev_logs), self.num_syslog_features))
-
         for key in prev_logs.keys():
             if key not in self.idx_starts:
                 continue
@@ -575,6 +577,7 @@ class Featurizer():
                     feature[:,si+i] = 1.0
 
         feature = torch.tensor(feature, dtype=torch.float)
+        # print("shape: ", feature.shape)
         return feature
 
     def get_heuristic_feats(self, G):

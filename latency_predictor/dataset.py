@@ -151,6 +151,7 @@ class QueryPlanDataset(data.Dataset):
             sys_log_feats,
             subplan_ests=False,
             ):
+
         for k, val in sys_log_feats.items():
             self.__setattr__(k, val)
 
@@ -238,6 +239,9 @@ class QueryPlanDataset(data.Dataset):
 
             if "col" in featurizer.sys_seq_kind:
                 logf = logf.T
+                one_hot = torch.eye(logf.shape[0])
+                # Appending the one-hot matrix to the transposed tensor
+                logf = torch.cat((logf, one_hot), 1)
 
             # logf = logf.to(device,
                     # non_blocking=True)

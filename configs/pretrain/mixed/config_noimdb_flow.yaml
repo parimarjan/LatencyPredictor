@@ -17,7 +17,8 @@ latent_inference: 0
 traindata_dir : "LatencyCollectorResults/background,LatencyCollectorResults/new,LatencyCollectorResults/multiple,LatencyCollectorResults"
 
 #tags: "exp8_single_stack"
-tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs,exp11_multi4_stack,exp12_multi4_tpch_stats_ergast,exp2_stack,exp3_stack_multi1,exp5_tpch_stats_ergast,exp9_stack1,exp9_stack2,"
+#tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp10_single_zdbs,exp11_single_zdbs,exp11_multi4_stack,exp12_multi4_tpch_stats_ergast,exp2_stack,exp3_stack_multi1,exp5_tpch_stats_ergast,exp9_stack1,exp9_stack2,"
+tags: "exp4_single_ergast,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp11_multi4_stack,exp12_multi4_tpch_stats_ergast,exp2_stack,exp3_stack_multi1,exp5_tpch_stats_ergast"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
@@ -51,9 +52,9 @@ sys_net:
 
   #pretrained_fn: "models4/mixed_noimdb_flow.wt"
   #pretrained_fn: "models4/mixed_noimdb_flow_hist_quad_log.wt"
-  pretrained_fn: "models4/mixed_noimdb_flow_quad_log.wt"
+  pretrained_fn: "models4/mixed_noimdb_flow_quad.wt"
 
-  max_pool: 0
+  max_pool: 1
   hl: 512
   num_layers: 4
   num_heads: 16
@@ -67,11 +68,12 @@ factorized_net:
   arch: "flow"
   order: "quadratic"
   bound: 7.0
+  finetune_inference: 0
 
   embedding_size: 32
   pretrained: 0
   hl: 256
-  num_layers: 4
+  num_layers: 1
   dropout: 0.2
   heuristic_feats: 0
 ...

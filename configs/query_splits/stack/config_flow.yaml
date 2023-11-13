@@ -16,17 +16,8 @@ num_latents: 128
 latent_inference: 0
 
 
-tags: "exp8_single_stack,exp2_stack,exp9_stack1,exp9_stack2"
-
-#tags: "exp2_stack"
-#tags: "exp10_single_zdbs"
-#tags: "exp1"
-#tags: "exp1"
-#tags: "exp8_single_stack"
-## stack splits
-#tags: "exp8_single_stack,exp2_stack,exp9_stack1,exp9_stack2"
-
-#tags: "exp2_stack"
+#tags: "exp8_single_stack,exp2_stack,exp9_stack1,exp9_stack2,exp11_multi4_stack"
+tags: "exp8_single_stack"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
@@ -77,10 +68,15 @@ sys_net:
 
 factorized_net:
   arch: "flow" # dot product
-  embedding_size: 32
+  embedding_size: 64
+
+  order: "quadratic"
+  bound: 7.0
+  finetune_inference: 1
+
   pretrained: 0
   hl: 256
-  num_layers: 2
+  num_layers: 1
   dropout: 0.2
   heuristic_feats: 0
 ...
