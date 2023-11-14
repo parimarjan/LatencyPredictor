@@ -7,8 +7,14 @@ from torch_geometric.data import Data
 import torch
 import pickle
 
+RUNTIME_NODE_FEATS = ["SortSpaceUsed", "RowsRemovedbyJoinFilter",
+                        "RowsRemovedbyFilter", "HeapFetches",
+                        "ExactHeapBlocks",
+                        "PeakMemoryUsage"
+                        ]
 IGNORE_NODE_FEATS = ["Alias", "Filter"]
 # IGNORE_NODE_FEATS = ["Alias"]
+# IGNORE_NODE_FEATS = []
 
 ### TODO: check
 ## RowsRemovedbyJoinFilter
@@ -86,6 +92,11 @@ class Featurizer():
                         continue
                 else:
                     if "Actual" in k:
+                        continue
+
+                if not self.actual_feats:
+                    if k in RUNTIME_NODE_FEATS:
+                        print("ignoring node feature of type: {}, with {} elements".format(k, len(v)))
                         continue
 
                 if len(v) == 1:
@@ -365,6 +376,10 @@ class Featurizer():
             newkeys.append(key)
         newkeys.sort()
         keys = newkeys
+
+        # print(newkeys)
+        # print(len(newkeys))
+        # pdb.set_trace()
 
         self._update_syslog_idx_positions(keys)
 

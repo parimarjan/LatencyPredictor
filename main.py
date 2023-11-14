@@ -21,6 +21,11 @@ import logging
 import csv
 import yaml
 import multiprocessing as mp
+import torch_geometric
+import torch_sparse
+import torch_scatter
+import pyg_lib
+import torch_cluster
 
 logger = logging.getLogger("wandb")
 logger.setLevel(logging.ERROR)
@@ -598,7 +603,13 @@ def load_dfs(dirs, tags):
 
 def main():
     global args,cfg,MIN_EST
-    print("hello world")
+    print("pd version: ", pd.__version__)
+    print("torch geometric: ", torch_geometric.__version__)
+    print("torch sparse: ", torch_sparse.__version__)
+    print("torch scatter: ", torch_scatter.__version__)
+    print("torch cluster: ", torch_cluster.__version__)
+    print("pyg lib: ", pyg_lib.__version__)
+    # pdb.set_trace()
 
     with open(args.config) as f:
         cfg = yaml.safe_load(f.read())
