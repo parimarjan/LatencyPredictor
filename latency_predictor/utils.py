@@ -43,8 +43,8 @@ RUNTIME_NODE_FEATS = [
 
 IGNORE_NODE_FEATS = ["Alias", "Filter", "pred_cols", "pred_types"]
 
-# MIN_EST = 0.1
 MIN_EST = 1.0
+# MIN_EST = 0.1
 MAX_EST = 909.0
 
 ALL_INSTANCES = ['a1_large_gp3_4g',

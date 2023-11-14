@@ -2,7 +2,8 @@
 ---
 #split_kind : "query" # instances,query,...;
 #split_kind : "instances" # instances,query,...;
-split_kind : "instances-query" # instances,query,...;
+#split_kind : "instances-query" # instances,query,...;
+split_kind : "instances" # instances,query,...;
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
@@ -55,7 +56,9 @@ sys_net:
   #pretrained_fn: "models4/mixed_nostack.wt"
 
   #pretrained_fn: "models4/mixed_nostack_logfeats.wt"
-  pretrained_fn: "models4/mixed_nostack_logfeats_col.wt"
+
+  #pretrained_fn: "models4/mixed_nostack_logfeats_col.wt"
+  pretrained_fn: "models4/noactual_mixed_nostack_logfeats_col.wt"
 
   max_pool: 0
   hl: 512
@@ -72,7 +75,7 @@ factorized_net:
   #arch: "dot"
   #embedding_size: 32
   pretrained: 1
-  hl: 256
+  hl: 64
   #hl: 64
   num_layers: 2
   dropout: 0.0

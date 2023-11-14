@@ -23,6 +23,71 @@ import pickle
 import wandb
 from collections import defaultdict
 
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+from scipy.stats import entropy
+
+
+import torch
+# from captum.attr import IntegratedGradients, LayerConductance, LayerActivation
+# from captum.attr import visualization as viz
+
+
+def compute_head_variances(att):
+    """Compute variance for each head."""
+    return np.var(att, axis=(1, 2))
+
+def compute_head_entropies(att):
+    """Compute entropy for each head across all positions."""
+    entropies = []
+    for i in range(att.shape[0]):
+        e = np.mean([entropy(att[i, j, :]) for j in range(att.shape[1])])
+        entropies.append(e)
+    return np.array(entropies)
+
+def compute_head_avg_attention(att):
+    """Compute average attention for each head."""
+    return np.mean(att, axis=(1, 2))
+
+
+def plot_att_heads(curatt, pdf):
+    variances = compute_head_variances(curatt)
+    entropies = compute_head_entropies(curatt)
+    avg_attentions = compute_head_avg_attention(curatt)
+
+    # Find heads with highest variance, entropy, and average attention
+    top_k = 2
+    top_variance_heads = np.argsort(variances)[-top_k:]
+    top_entropy_heads = np.argsort(entropies)[-top_k:]
+    top_avg_attention_heads = np.argsort(avg_attentions)[-top_k:]
+
+    # ATTENTION MATRIX PAGE
+    fig_att, axes = plt.subplots(2, 3, figsize=(20, 10))
+    for j, ax in enumerate(axes.ravel()):
+        if j < len(top_variance_heads):
+            head_idx = top_variance_heads[j]
+            title = f"Variance Head {head_idx}"
+        elif j < len(top_variance_heads) + len(top_entropy_heads):
+            head_idx = top_entropy_heads[j - len(top_variance_heads)]
+            title = f"Entropy Head {head_idx}"
+        elif j < len(top_variance_heads) + len(top_entropy_heads) + len(top_avg_attention_heads):
+            head_idx = top_avg_attention_heads[j - len(top_variance_heads) - len(top_entropy_heads)]
+            title = f"Average Attention Head {head_idx}"
+        else:
+            continue
+
+        sns.heatmap(curatt[head_idx], ax=ax, cmap='viridis', cbar_kws={"shrink": 0.75})
+        ax.set_title(title)
+        ax.set_xlabel("Sys Logs")
+        ax.set_ylabel("Sys Logs")
+
+
+    plt.tight_layout()
+    pdf.savefig(fig_att)
+    plt.close()
+
 INFERENCE_SAMPLES=20
 FINETUNE_EVERY_BATCH=True
 
@@ -501,7 +566,7 @@ class NN(LatencyPredictor):
 
             self.net.sys_net.load_state_dict(torch.load(
                     self.cfg["sys_net"]["pretrained_fn"],
-					map_location="cpu",
+                    map_location="cpu",
                     ))
 
             for parameter in self.net.sys_net.parameters():
@@ -707,6 +772,20 @@ class NN(LatencyPredictor):
                 latent = 0.0
                 print("skipping first batch of instance")
                 continue
+
+            # if di > 5:
+                # ## attention maps
+                # att = self.net.sys_net.net.tblocks[0].get_attention_values(\
+                        # data["sys_logs"].to(device, non_blocking=True))
+
+                # att = att.detach().cpu().numpy()
+                # print(att.shape)
+
+                # outname = "AttentionMaps-Batch-{}.pdf".format(di)
+                # with PdfPages(outname) as pdf:
+                    # for gi in range(data["graph"].num_graphs):
+                        # curatt = att[gi*16:gi*16+16]
+                        # plot_att_heads(curatt, pdf)
 
             yhat = self.net(data)
             y = data["y"]

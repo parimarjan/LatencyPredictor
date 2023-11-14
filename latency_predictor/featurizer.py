@@ -8,6 +8,7 @@ import torch
 import pickle
 
 # IGNORE_NODE_FEATS = ["Alias"]
+# IGNORE_NODE_FEATS = []
 
 ### TODO: check
 ## RowsRemovedbyJoinFilter
@@ -86,6 +87,11 @@ class Featurizer():
                 if not self.actual_feats:
                     if k in RUNTIME_NODE_FEATS:
                         print("ignoring node feature of type: {}, with {} elements"    .format(k, len(v)))
+                        continue
+
+                if not self.actual_feats:
+                    if k in RUNTIME_NODE_FEATS:
+                        print("ignoring node feature of type: {}, with {} elements".format(k, len(v)))
                         continue
 
                 if len(v) == 1:
@@ -384,6 +390,10 @@ class Featurizer():
 
         newkeys.sort()
         keys = newkeys
+        # print(newkeys)
+        # print(len(newkeys))
+        # pdb.set_trace()
+
         # print(newkeys)
         # print(len(newkeys))
         # pdb.set_trace()
