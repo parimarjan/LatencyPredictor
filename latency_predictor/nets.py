@@ -11,6 +11,7 @@ import pdb
 from latency_predictor.transformer import RegressionTransformer
 from tst import Transformer
 from latency_predictor.featurizer import HEURISTIC_FEATS
+from latency_predictor.utils import *
 # from latency_predictor.dataset import MAX_LOG_LEN
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -87,7 +88,7 @@ class FactorizedLatencyNet(torch.nn.Module):
 
         if "hist_net" in cfg:
             self.hist_net = TransformerLogs(
-                    5,
+                    len(RUNTIME_MASK),
                     cfg["factorized_net"]["embedding_size"],
                     cfg["hist_net"]["num_layers"],
                     cfg["hist_net"]["hl"],

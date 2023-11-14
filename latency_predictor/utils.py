@@ -15,9 +15,33 @@ from networkx.drawing.nx_agraph import write_dot,graphviz_layout
 from networkx.algorithms.traversal.depth_first_search import dfs_tree
 import math
 from io import StringIO
+import pickle
 
 import torch
 from torch.autograd import Variable
+
+from networkx.readwrite import json_graph
+# from latency_predictor.featurizer import RUNTIME_NODE_FEATS
+
+def load_qrep(fn):
+    assert ".pkl" in fn
+    with open(fn, "rb") as f:
+        query = pickle.load(f)
+
+    query["subset_graph"] = \
+            nx.DiGraph(json_graph.adjacency_graph(query["subset_graph"]))
+    query["join_graph"] = json_graph.adjacency_graph(query["join_graph"])
+
+    return query
+
+RUNTIME_NODE_FEATS = [
+                      "SortSpaceUsed",
+                      "RowsRemovedbyJoinFilter", "RowsRemovedbyFilter",
+                      "HeapFetches", "ExactHeapBlocks",
+                      "PeakMemoryUsage"
+                      ]
+
+IGNORE_NODE_FEATS = ["Alias", "Filter", "pred_cols", "pred_types"]
 
 # MIN_EST = 0.1
 MIN_EST = 1.0
@@ -45,9 +69,32 @@ TEST_INSTANCE_TYPES = ["a1_large_gp3_4g", "r7g_large_gp2_16g",
         "t3_large_gp2_8g",
         ]
 
-RUNTIME_MASK = [0, 1,
-                0, 1,
-                1]
+RUNTIME_MASK = [0]*len(RUNTIME_NODE_FEATS) + [0, 0]
+RUNTIME_MASK += [1, 1]
+
+from pathlib import Path
+
+def find_file(start_path, target_file):
+    start_path = Path(start_path)
+    for file in start_path.rglob(target_file):
+        return file
+    return None
+
+def get_qrep_file(row):
+    qdir = row["query_dir"]
+    qrep_dir = "../MyCEB/queries/"
+    qfn = row["qname"].replace(".sql", ".pkl")
+
+    if "stack" in qdir:
+        qrep_dir += "stack/"
+    else:
+        assert False
+
+    qrep_fn = find_file(qrep_dir, qfn)
+    if qrep_fn is not None and os.path.exists(qrep_fn):
+        return load_qrep(str(qrep_fn))
+    else:
+        return None
 
 def extract_template(s):
     if len(s) >= 20:
@@ -338,6 +385,7 @@ def load_sys_logs(inp_dir):
             continue
 
     keys = list(logdfs.keys())
+    keys.sort()
     if len(keys) == 0:
         return []
 
@@ -378,11 +426,6 @@ def get_plans(df):
         start = time.time()
         tmp["num_concurrent"] = tmp.apply(lambda x: num_concurrent(x, tmp),
                     axis=1)
-        # if max(tmp["num_concurrent"]) > 1:
-            # print(set(tmp["tag"]))
-            # print("num concurrent took: ", time.time()-start)
-            # print(tmp["num_concurrent"].describe())
-            # pdb.set_trace()
 
         for i,row in tmp.iterrows():
             exp = row["exp_analyze"]
@@ -393,6 +436,25 @@ def get_plans(df):
                 continue
 
             G = explain_to_nx(plan[0][0][0])
+            qrep = get_qrep_file(row)
+            for node, data in G.nodes(data=True):
+                if "Alias" in data:
+                    al = data["Alias"]
+                    if al in qrep["join_graph"].nodes():
+                        jvals = qrep["join_graph"].nodes()[al]
+                        G.nodes()[node]["pred_cols"] = jvals["pred_cols"]
+                        G.nodes()[node]["pred_vals"] = []
+                        for cv in jvals["pred_vals"]:
+                            cv = [str(cv2) for cv2 in cv]
+                            G.nodes()[node]["pred_vals"] += cv
+                        G.nodes()[node]["pred_types"] = jvals["pred_types"]
+
+            # Iterate through each node in the graph
+            # for node in G.nodes:
+                # print(f"Node: {node}")
+                # for target in G[node]:
+                    # print(f"  Edge from {node} to {target}")
+                # print()  # Add an empty line for better readability
 
             # global properties about plan
             G.graph["start_time"] = row["start_time"]
@@ -422,46 +484,39 @@ def get_plans(df):
                 prediction = model.predict(X_reshaped)
                 G.graph["heuristic_pred"] = prediction[0]
             else:
-                # assert False
-                # print("no model for: ", row["lt_type"])
                 G.graph["heuristic_pred"] = 0.0
 
             # 1d rep
             pdata = dict(G.nodes(data=True))
             actual_card = sum(subdict['ActualRows'] for subdict in
                     pdata.values())
-            est_card = sum(subdict['PlanRows'] for subdict in
-                    pdata.values())
             actual_time = max(subdict['ActualTotalTime'] for subdict in
+                    pdata.values())
+            # RUNTIME_NODE_FEATS = [
+                      # "SortSpaceUsed",
+                      # "RowsRemovedbyJoinFilter", "RowsRemovedbyFilter",
+                      # "HeapFetches", "ExactHeapBlocks",
+                      # "PeakMemoryUsage"
+                      # ]
+
+            heap_ = max(subdict['ActualTotalTime'] for subdict in
+                    pdata.values())
+
+            est_card = sum(subdict['PlanRows'] for subdict in
                     pdata.values())
             est_cost = max(subdict['TotalCost'] for subdict in
                     pdata.values())
-            pred_time = G.graph["heuristic_pred"]
+            # pred_time = G.graph["heuristic_pred"]
 
-            G.graph["runtime_feats"] = [actual_card, est_card,
-                                    actual_time, pred_time,
-                                    est_cost]
+            G.graph["runtime_feats"] = [actual_card, actual_time]
+
+            for rnf in RUNTIME_NODE_FEATS:
+                rnf_val = sum(subdict[rnf] for subdict in
+                        pdata.values() if rnf in subdict)
+                G.graph["runtime_feats"].append(rnf_val)
+
+            G.graph["runtime_feats"] += [est_card, est_cost]
             plans.append(G)
-
-    # for i,row in df.iterrows():
-        # exp = row["exp_analyze"]
-        # try:
-            # plan = eval(str(exp))
-        # except Exception as e:
-            # # print(e)
-            # continue
-
-        # G = explain_to_nx(plan[0][0][0])
-
-        # # global properties about plan
-        # G.graph["start_time"] = row["start_time"]
-        # G.graph["latency"] = row["runtime"]
-        # G.graph["tag"] = row["tag"]
-        # G.graph["qname"] = row["qname"]
-        # G.graph["instance"] = row["instance"]
-        # G.graph["lt_type"] = row["lt_type"]
-        # G.graph["bk_kind"] = row["bk_kind"]
-        # plans.append(G)
 
     return plans
 
@@ -543,7 +598,8 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
     dfs = []
     all_logs = {}
 
-    instance_dirs = os.listdir(inp_dir)
+    instance_dirs = list(os.listdir(inp_dir))
+    instance_dirs.sort()
     lt_fn_path = os.path.join(inp_dir, LT_FN)
     if os.path.exists(lt_fn_path):
         ltdf = pd.read_csv(lt_fn_path, header=None,
@@ -561,6 +617,8 @@ def load_all_logs(inp_tag, inp_dir, skip_timeouts=False):
             continue
         # lets load the result files
         rtfns = glob.iglob(curdir + "/results/Runtime*.csv")
+        rtfns = list(rtfns)
+        rtfns.sort()
         curdfs = []
 
         for rtfn in rtfns:

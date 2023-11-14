@@ -7,7 +7,6 @@ from torch_geometric.data import Data
 import torch
 import pickle
 
-IGNORE_NODE_FEATS = ["Alias", "Filter"]
 # IGNORE_NODE_FEATS = ["Alias"]
 
 ### TODO: check
@@ -66,9 +65,6 @@ class Featurizer():
             attrs = defaultdict(set)
             self._update_attrs(plans, attrs)
 
-            # if self.y_normalizer != "none":
-                # assert False
-
             # for graph features, each node will reserve spots for each of the
             # features
             self.cur_feature_idx = 0
@@ -87,6 +83,10 @@ class Featurizer():
                 else:
                     if "Actual" in k:
                         continue
+                if not self.actual_feats:
+                    if k in RUNTIME_NODE_FEATS:
+                        print("ignoring node feature of type: {}, with {} elements"    .format(k, len(v)))
+                        continue
 
                 if len(v) == 1:
                     continue
@@ -95,7 +95,18 @@ class Featurizer():
                 self.idx_starts[k] = self.cur_feature_idx
                 used_keys.add(k)
 
-                v0 = random.sample(v, 1)[0]
+                # v0 = random.sample(v, 1)[0]
+                # print(v)
+                # pdb.set_trace()
+                # v = list(v)
+                # v0 = random.sample(v, 1)[0]
+
+                try:
+                    v0 = random.sample(sorted(attrs[k]), 1)[0]
+                except:
+                    print(attrs[k])
+                    print(k)
+                    pdb.set_trace()
 
                 if is_float(v0):
                     # print(k, ": continuous feature")
@@ -144,8 +155,8 @@ class Featurizer():
                 else:
                     print("skipping features {}, because too many values: {}"\
                             .format(k, len(v)))
-                    # pdb.set_trace()
                     del self.idx_starts[k]
+                    used_keys.remove(k)
 
             print("Features based on: ", used_keys)
 
@@ -283,6 +294,7 @@ class Featurizer():
                 print("normalizers saved at: ", fn)
 
         self.sys_norms = sys_norms
+        print(self.sys_norms)
         self.normalization_stats.update(sys_norms)
 
         if self.cfg["factorized_net"]["heuristic_feats"]:
@@ -316,9 +328,11 @@ class Featurizer():
         for G in plans:
             for ndata in G.nodes(data=True):
                 for key,val in ndata[1].items():
-                    # if key in self.ignore_node_feats:
-                        # continue
-                    attrs[key].add(val)
+                    if isinstance(val, list):
+                        for curval in val:
+                            attrs[key].add(curval)
+                    else:
+                        attrs[key].add(val)
 
     def _update_syslog_idx_positions(self, keys):
         keys.sort()
@@ -358,13 +372,21 @@ class Featurizer():
                 continue
             if key in ["timestamp", "CPU", "INTR"]:
                 continue
+
             # if key in ["timestamp"]:
                 # continue
+            if df[key].isna().any():
+                print("Nan present: ", key)
+                continue
 
             assert key not in self.idx_starts
             newkeys.append(key)
+
         newkeys.sort()
         keys = newkeys
+        # print(newkeys)
+        # print(len(newkeys))
+        # pdb.set_trace()
 
         self._update_syslog_idx_positions(keys)
 
@@ -481,8 +503,13 @@ class Featurizer():
 
     def _featurize_node(self, G, node):
         feature = np.zeros(self.num_features)
+
         for k,v in G.nodes()[node].items():
-            self.handle_key(k, v, feature)
+            if isinstance(v, list):
+                for v0 in v:
+                    self.handle_key(k, v0, feature)
+            else:
+                self.handle_key(k, v, feature)
 
         ### additional / derived features
         if self.feat_noncumulative_costs:
@@ -566,6 +593,7 @@ class Featurizer():
                         pdb.set_trace()
 
                 elif self.normalizer == "std":
+                    assert m1 != 0.0
                     vals = (prev_logs[key].values - m0) / m1
 
                 feature[:,idx_col] = vals
@@ -576,6 +604,7 @@ class Featurizer():
                 if inst == lt_type:
                     feature[:,si+i] = 1.0
 
+        assert not np.isnan(feature).any(), "The array contains NaN values."
         feature = torch.tensor(feature, dtype=torch.float)
         # print("shape: ", feature.shape)
         return feature

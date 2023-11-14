@@ -42,17 +42,17 @@ plan_net:
   dropout : 0.2
   pretrained: 0
 
-#hist_net:
-  ## mlp / transformer
-  #arch: "transformer"
-  #pretrained : 0
-  #save_weights: 1
+hist_net:
+  # mlp / transformer
+  arch: "transformer"
+  pretrained : 0
+  save_weights: 1
 
-  #max_pool: 1
-  #hl: 512
-  #num_layers: 4
-  #num_heads: 16
-  #dropout: 0.2
+  max_pool: 0
+  hl: 32
+  num_layers: 2
+  num_heads: 16
+  dropout: 0.0
 
 sys_net:
   # avg/ mlp / transformer
