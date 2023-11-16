@@ -1,8 +1,8 @@
 %YAML 1.2
 ---
 #split_kind : "query" # instances,query,...;
-#split_kind : "instances" # instances,query,...;
-split_kind: "instances-query"
+split_kind : "instances" # instances,query,...;
+#split_kind: "instances-query"
 random_split: "random" # random,custom
 num_instances : 1
 seed : 1
@@ -21,7 +21,22 @@ traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
 
 #tags: "exp1_single,exp2_single,exp3_single"
 
-tags: "exp1,exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_imdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b"
+#tags: "exp1,exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_imdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b"
+
+## main run
+# exp1: gaming,audio,etc bk; exp6_multi4: multi6 bk;
+tags: "exp1,exp6_multi4"
+
+#tags: "exp6_multi4"
+#tags: "exp1"
+
+## only JOB
+#tags: "exp10_multi4_1p_imdb2"
+#tags: "exp10_multi4_1p_imdb"
+#tags: "exp6_multi4b"
+
+## has some bad files, and only JOB queries
+#tags: "exp7_multi4"
 
 #tags: "exp1_single,exp2_single,exp3_single,exp1,exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_imdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b,exp4_ceb2,exp7_single_ceb2"
 
@@ -41,7 +56,7 @@ common:
   batch_size: 16
 plan_net:
   arch: "gcn"
-  hl: 512
+  hl: 64
   num_conv_layers: 8
   subplan_ests: 0
   dropout : 0.2
@@ -63,7 +78,8 @@ sys_net:
   #pretrained_fn: "models4/tpch-ergast-stack_log.wt"
   #pretrained_fn: "models4/mixed_noimdb_log.wt"
   #pretrained_fn: "models4/mixed_noimdb_log_nostatic.wt"
-  pretrained_fn: "models4/mixed_noimdb_log_nostatic_logfeats.wt"
+  #pretrained_fn: "models4/mixed_noimdb_log_nostatic_logfeats.wt"
+  pretrained_fn: "models4/noactual_mixed_noimdb_logfeats_col.wt"
 
   max_pool: 0
   hl: 512
@@ -75,12 +91,9 @@ sys_net:
 
 factorized_net:
   arch: "mlp" # dot product
-  #arch: "attention"
-  #embedding_size: 128
-  #arch: "dot"
-  embedding_size: 32
+  embedding_size: 16
   pretrained: 1
-  hl: 256
+  hl: 64
   num_layers: 2
   dropout: 0.2
   heuristic_feats: 0

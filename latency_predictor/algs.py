@@ -95,6 +95,7 @@ class DBMS(LatencyPredictor):
             pdata = dict(plan.nodes(data=True))
             max_cost = max(subdict['TotalCost'] for subdict in
                     pdata.values())
+
             if self.normy == "log":
                 latency = np.log(latency)
                 max_cost = np.log(max_cost)
@@ -148,8 +149,8 @@ class DBMS(LatencyPredictor):
     def test(self, plans, sys_logs, **kwargs):
         '''
         '''
-        if self.fit_test and "unseen" not in kwargs["samples_type"]:
-            self.train(plans, sys_logs, self.featurizer)
+        # if self.fit_test and "unseen" not in kwargs["samples_type"]:
+            # self.train(plans, sys_logs, self.featurizer)
 
         ret = []
         for plan in plans:

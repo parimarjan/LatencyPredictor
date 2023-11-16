@@ -51,8 +51,8 @@ def compute_head_avg_attention(att):
     """Compute average attention for each head."""
     return np.mean(att, axis=(1, 2))
 
-
-def plot_att_heads(curatt, pdf):
+PLOT_ATT=True
+def plot_att_heads(curatt, pdf, keynames):
     variances = compute_head_variances(curatt)
     entropies = compute_head_entropies(curatt)
     avg_attentions = compute_head_avg_attention(curatt)
@@ -63,30 +63,82 @@ def plot_att_heads(curatt, pdf):
     top_entropy_heads = np.argsort(entropies)[-top_k:]
     top_avg_attention_heads = np.argsort(avg_attentions)[-top_k:]
 
-    # ATTENTION MATRIX PAGE
-    fig_att, axes = plt.subplots(2, 3, figsize=(20, 10))
-    for j, ax in enumerate(axes.ravel()):
+    # total_heads = len(top_variance_heads) + len(top_entropy_heads) + len(top_avg_attention_heads)
+    total_heads = len(top_variance_heads) + len(top_entropy_heads)
+
+    for j in range(total_heads):
+        # Determine the head index and title
         if j < len(top_variance_heads):
             head_idx = top_variance_heads[j]
             title = f"Variance Head {head_idx}"
         elif j < len(top_variance_heads) + len(top_entropy_heads):
             head_idx = top_entropy_heads[j - len(top_variance_heads)]
             title = f"Entropy Head {head_idx}"
-        elif j < len(top_variance_heads) + len(top_entropy_heads) + len(top_avg_attention_heads):
+        else:
             head_idx = top_avg_attention_heads[j - len(top_variance_heads) - len(top_entropy_heads)]
             title = f"Average Attention Head {head_idx}"
-        else:
-            continue
 
-        sns.heatmap(curatt[head_idx], ax=ax, cmap='viridis', cbar_kws={"shrink": 0.75})
+        # Create a new figure for each head
+        fig, ax = plt.subplots(figsize=(8, 8))  # Adjusted for a more square figure
+
+        # Plot the heatmap
+        heatmap = sns.heatmap(curatt[head_idx], ax=ax,
+                cmap='viridis', cbar_kws={"shrink": 0.5}, xticklabels=keynames,
+                yticklabels=keynames)
+
+        # Ensure the aspect ratio is equal to make the heatmap square
+        ax.set_aspect('equal')
+
+        # Set the title and labels
         ax.set_title(title)
         ax.set_xlabel("Sys Logs")
         ax.set_ylabel("Sys Logs")
 
+        # Improve layout
+        plt.xticks(rotation=90, ha='right', fontsize=6)  # Rotate and align x labels for clarity
+        plt.yticks(rotation=0, fontsize=6)
+        plt.subplots_adjust(bottom=0.15)  # Adjust to prevent label cutoff
 
-    plt.tight_layout()
-    pdf.savefig(fig_att)
-    plt.close()
+        # Save the current figure to the PDF
+        pdf.savefig(fig)
+
+        # Close the figure to free memory
+        plt.close(fig)
+
+# def plot_att_heads(curatt, pdf, keynames):
+    # variances = compute_head_variances(curatt)
+    # entropies = compute_head_entropies(curatt)
+    # avg_attentions = compute_head_avg_attention(curatt)
+
+    # # Find heads with highest variance, entropy, and average attention
+    # top_k = 2
+    # top_variance_heads = np.argsort(variances)[-top_k:]
+    # top_entropy_heads = np.argsort(entropies)[-top_k:]
+    # top_avg_attention_heads = np.argsort(avg_attentions)[-top_k:]
+
+    # # ATTENTION MATRIX PAGE
+    # fig_att, axes = plt.subplots(2, 3, figsize=(20, 10))
+    # for j, ax in enumerate(axes.ravel()):
+        # if j < len(top_variance_heads):
+            # head_idx = top_variance_heads[j]
+            # title = f"Variance Head {head_idx}"
+        # elif j < len(top_variance_heads) + len(top_entropy_heads):
+            # head_idx = top_entropy_heads[j - len(top_variance_heads)]
+            # title = f"Entropy Head {head_idx}"
+        # elif j < len(top_variance_heads) + len(top_entropy_heads) + len(top_avg_attention_heads):
+            # head_idx = top_avg_attention_heads[j - len(top_variance_heads) - len(top_entropy_heads)]
+            # title = f"Average Attention Head {head_idx}"
+        # else:
+            # continue
+
+        # sns.heatmap(curatt[head_idx], ax=ax, cmap='viridis', cbar_kws={"shrink": 0.75})
+        # ax.set_title(title)
+        # ax.set_xlabel("Sys Logs")
+        # ax.set_ylabel("Sys Logs")
+
+    # plt.tight_layout()
+    # pdf.savefig(fig_att)
+    # plt.close()
 
 INFERENCE_SAMPLES=20
 FINETUNE_EVERY_BATCH=True
@@ -773,19 +825,24 @@ class NN(LatencyPredictor):
                 print("skipping first batch of instance")
                 continue
 
-            # if di > 5:
-                # ## attention maps
-                # att = self.net.sys_net.net.tblocks[0].get_attention_values(\
-                        # data["sys_logs"].to(device, non_blocking=True))
+            if PLOT_ATT:
+                if random.random() < 0.1:
+                    ## attention maps
+                    att = self.net.sys_net.net.tblocks[0].get_attention_values(\
+                            data["sys_logs"].to(device, non_blocking=True))
 
-                # att = att.detach().cpu().numpy()
-                # print(att.shape)
+                    att = att.detach().cpu().numpy()
+                    num_keys = att.shape[1]
+                    key_names = [None]*num_keys
+                    for kname,kidx in self.featurizer.idx_starts.items():
+                        key_names[kidx] = kname
+                    print(key_names)
 
-                # outname = "AttentionMaps-Batch-{}.pdf".format(di)
-                # with PdfPages(outname) as pdf:
-                    # for gi in range(data["graph"].num_graphs):
-                        # curatt = att[gi*16:gi*16+16]
-                        # plot_att_heads(curatt, pdf)
+                    outname = "AttentionMaps-Batch-{}.pdf".format(di)
+                    with PdfPages(outname) as pdf:
+                        for gi in range(data["graph"].num_graphs):
+                            curatt = att[gi*16:gi*16+16]
+                            plot_att_heads(curatt, pdf, key_names)
 
             yhat = self.net(data)
             y = data["y"]

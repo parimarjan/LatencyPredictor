@@ -235,7 +235,10 @@ class Featurizer():
         allfeats = []
         for G in plans:
             allfeats.append(G.graph["runtime_feats"])
-        allfeats = np.array(allfeats)
+
+        if LOGFEATS:
+            allfeats = np.log(np.array(allfeats)+0.0001)
+
         self.hist_means = np.mean(allfeats,axis=0)
         self.hist_stds = np.std(allfeats,axis=0)
 
@@ -247,8 +250,7 @@ class Featurizer():
             hfn = hfn.replace(".wt", "_hist_normalizers.pkl")
             with open(hfn, "rb") as f:
                 self.hist_means, self.hist_stds = pickle.load(f)
-            # for G in plans:
-                # G.graph["runtime_feats"] = (G.graph["runtime_feats"] - hist_means) / hist_stds
+
         else:
             # normalize the 1dfeat reps
             allfeats = []
@@ -265,9 +267,6 @@ class Featurizer():
                 with open(hfn, 'wb') as f:
                     pickle.dump((self.hist_means,self.hist_stds), f)
                 print("history normalizers saved at: ", hfn)
-
-            # for G in plans:
-                # G.graph["runtime_feats"] = (G.graph["runtime_feats"] - hist_means) / hist_stds
 
         if self.cfg["sys_net"]["pretrained"]:
             if self.cfg["sys_net"]["use_pretrained_norms"]:
@@ -300,7 +299,7 @@ class Featurizer():
                 print("normalizers saved at: ", fn)
 
         self.sys_norms = sys_norms
-        print(self.sys_norms)
+        # print(self.sys_norms)
         self.normalization_stats.update(sys_norms)
 
         if self.cfg["factorized_net"]["heuristic_feats"]:
@@ -557,7 +556,11 @@ class Featurizer():
                     or not hasattr(self, "hist_means"):
                 curfeats = np.zeros(len(G.graph["runtime_feats"]))
             else:
-                curfeats = (np.array(curplan.graph["runtime_feats"]) - self.hist_means) \
+                rfeats = np.array(curplan.graph["runtime_feats"])
+                if LOGFEATS:
+                    rfeats = np.log(rfeats+0.0001)
+
+                curfeats = (rfeats - self.hist_means) \
                                         / self.hist_stds
 
             if curidx == gi:

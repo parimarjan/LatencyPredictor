@@ -37,8 +37,8 @@ common:
   batch_size: 16
 plan_net:
   arch: "gcn"
-  hl: 256
-  num_conv_layers: 8
+  hl: 128
+  num_conv_layers: 4
   subplan_ests: 0
   dropout : 0.0
   pretrained: 0

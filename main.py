@@ -84,8 +84,8 @@ def split_workload(df, cfg):
             rem_instances = [q for q in instances if q not in test_qinstances]
             print("Number of test instances: ", len(test_qinstances))
             print("Number of remaining instances: ", len(rem_instances))
+            random.seed(cfg["seed"])
             train_qinstances = random.sample(rem_instances, inum)
-            train_qinstances = random.sample(instances, inum)
             assert train_qinstances[0] in instances
         else:
             train_qinstances = random.sample(instances, inum)
@@ -94,6 +94,8 @@ def split_workload(df, cfg):
 
         print("Training instances: ", train_qinstances)
         print("Test instances: ", test_qinstances)
+
+        # pdb.set_trace()
 
         train_df = df[df["instance"].isin(train_qinstances)]
         test_df = df[df["instance"].isin(test_qinstances)]
@@ -424,7 +426,7 @@ def read_flags():
             default=None, help="")
 
     parser.add_argument("--sys_seq_kind", type=str, required=False,
-            default="rows", help="")
+            default="cols", help="")
 
     parser.add_argument("--max_set_len", type=int,
             required=False,

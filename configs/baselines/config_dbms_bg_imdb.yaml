@@ -1,9 +1,10 @@
 %YAML 1.2
 ---
 #split_kind : "query_dir-test_instances" # instances,query,...;
-#split_kind : "query_dir-test_instances" # instances,query,...;
-split_kind : "query_dir-query" # instances,query,...;
-test_query_dir: "./queries/ceb-small,./queries/job"
+split_kind : "query_dir-test_instances" # instances,query,...;
+#split_kind : "query_dir-query" # instances,query,...;
+#test_query_dir: "./queries/ceb-small,./queries/job"
+test_query_dir: "./queries/ceb-small"
 
 random_split: "random" # random,custom
 num_instances : 1
@@ -18,7 +19,14 @@ traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
 
   #exp1_single,exp2_single,exp3_single,exp1,exp10_multi4_1p,exp7_multi4,exp10_multi4_1p_i
 #mdb2,exp10_multi4_1p_imdb,exp6_multi4,exp6_multi4b
-tags: "exp10_single_zdbs,exp5_single_stats,exp8_single_stack,exp11_single_zdbs,exp9_single_tpch,exp4_single_ergast,exp1_single,exp2_single,exp3_single,exp1,exp10_multi4_1p,exp10_multi4_1p_imdb,exp10_multi4_1p_imdb2,exp6_multi4,exp6_multi4b,exp7_multi4"
+#tags: "exp10_single_zdbs,exp5_single_stats,exp8_single_stack,exp11_single_zdbs,exp9_single_tpch,exp4_single_ergast,exp1_single,exp2_single,exp3_single,exp1,exp10_multi4_1p,exp10_multi4_1p_imdb,exp10_multi4_1p_imdb2,exp6_multi4,exp6_multi4b,exp7_multi4"
+
+#tags: "exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp1,exp6_multi4"
+#tags: "exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp6_multi4"
+
+## with zdbs, things do worse
+#tags: "exp10_single_zdbs,exp1_single_zdbs,exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp1,exp6_multi4"
+tags: "exp5_single_stats,exp8_single_stack,exp9_single_tpch,exp1,exp6_multi4"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/background"

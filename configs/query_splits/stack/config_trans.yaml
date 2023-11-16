@@ -18,7 +18,8 @@ traindata_dir : "LatencyCollectorResults/new,LatencyCollectorResults/background"
 ## stack splits
 #tags: "exp8_single_stack,exp2_stack,exp9_stack1,exp9_stack2"
 #tags: "exp8_single_stack,exp2_stack,exp9_stack1,exp9_stack2,exp11_multi4_stack"
-tags: "exp8_single_stack,exp2_stack,exp3_stack_multi1,exp11_multi4_stack"
+#tags: "exp8_single_stack,exp2_stack,exp3_stack_multi1,exp11_multi4_stack"
+tags: "exp8_single_stack"
 
 use_eval_tags : 0
 eval_dirs : "LatencyCollectorResults/new"
@@ -42,17 +43,17 @@ plan_net:
   dropout : 0.2
   pretrained: 0
 
-hist_net:
-  # mlp / transformer
-  arch: "transformer"
-  pretrained : 0
-  save_weights: 1
+#hist_net:
+  ## mlp / transformer
+  #arch: "transformer"
+  #pretrained : 0
+  #save_weights: 1
 
-  max_pool: 0
-  hl: 32
-  num_layers: 2
-  num_heads: 16
-  dropout: 0.0
+  #max_pool: 0
+  #hl: 32
+  #num_layers: 4
+  #num_heads: 32
+  #dropout: 0.0
 
 sys_net:
   # avg/ mlp / transformer
@@ -64,19 +65,19 @@ sys_net:
   max_pool: 0
   dropout: 0.2
 
-  hl: 512
-  num_layers: 4
-  num_heads: 16
+  hl: 256
+  num_layers: 2
+  num_heads: 32
   log_prev_secs: 600
   log_skip: 2
 
 factorized_net:
   arch: "mlp" # dot product
   #arch: "dot" # dot product
-  embedding_size: 16
+  embedding_size: 128
 
   pretrained: 0
-  hl: 64
+  hl: 256
   num_layers: 2
   dropout: 0.2
   heuristic_feats: 0

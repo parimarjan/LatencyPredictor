@@ -21,7 +21,6 @@ import torch
 from torch.autograd import Variable
 
 from networkx.readwrite import json_graph
-# from latency_predictor.featurizer import RUNTIME_NODE_FEATS
 
 def load_qrep(fn):
     assert ".pkl" in fn
@@ -34,17 +33,22 @@ def load_qrep(fn):
 
     return query
 
-RUNTIME_NODE_FEATS = [
-                      "SortSpaceUsed",
+RUNTIME_NODE_FEATS = ["SortSpaceUsed",
                       "RowsRemovedbyJoinFilter", "RowsRemovedbyFilter",
                       "HeapFetches", "ExactHeapBlocks",
                       "PeakMemoryUsage"
                       ]
 
-IGNORE_NODE_FEATS = ["Alias", "Filter", "pred_cols", "pred_types"]
+RUNTIME_MASK = [0,0] + [0]*len(RUNTIME_NODE_FEATS)
 
-MIN_EST = 1.0
-# MIN_EST = 0.1
+RUNTIME_MASK += [1, 1]
+
+USE_PRED_FEATS=True
+# IGNORE_NODE_FEATS = ["Alias", "Filter", "pred_cols", "pred_types", "pred_vals"]
+IGNORE_NODE_FEATS = ["Alias", "Filter", "pred_vals"]
+
+# MIN_EST = 1.0
+MIN_EST = 0.1
 MAX_EST = 909.0
 
 ALL_INSTANCES = ['a1_large_gp3_4g',
@@ -69,8 +73,6 @@ TEST_INSTANCE_TYPES = ["a1_large_gp3_4g", "r7g_large_gp2_16g",
         "t3_large_gp2_8g",
         ]
 
-RUNTIME_MASK = [0]*len(RUNTIME_NODE_FEATS) + [0, 0]
-RUNTIME_MASK += [1, 1]
 
 from pathlib import Path
 
@@ -87,8 +89,10 @@ def get_qrep_file(row):
 
     if "stack" in qdir:
         qrep_dir += "stack/"
-    else:
-        assert False
+    elif "job" in qdir:
+        qrep_dir += "job/"
+    elif "ceb" in qdir:
+        qrep_dir += "ceb-imdb/"
 
     qrep_fn = find_file(qrep_dir, qfn)
     if qrep_fn is not None and os.path.exists(qrep_fn):
@@ -417,6 +421,12 @@ def get_plans(df):
     plans = []
     instances = list(set(df["instance"]))
     instances.sort()
+
+    avg_latency = df.groupby('qname')['runtime'].mean()
+
+    # Convert the result into a dictionary
+    avg_latency_dict = avg_latency.to_dict()
+
     for instance in instances:
         tmp = df[df["instance"] == instance]
         tmp = tmp.sort_values(by="start_time",
@@ -436,18 +446,29 @@ def get_plans(df):
                 continue
 
             G = explain_to_nx(plan[0][0][0])
-            qrep = get_qrep_file(row)
-            for node, data in G.nodes(data=True):
-                if "Alias" in data:
-                    al = data["Alias"]
-                    if al in qrep["join_graph"].nodes():
-                        jvals = qrep["join_graph"].nodes()[al]
-                        G.nodes()[node]["pred_cols"] = jvals["pred_cols"]
-                        G.nodes()[node]["pred_vals"] = []
-                        for cv in jvals["pred_vals"]:
-                            cv = [str(cv2) for cv2 in cv]
-                            G.nodes()[node]["pred_vals"] += cv
-                        G.nodes()[node]["pred_types"] = jvals["pred_types"]
+
+            if USE_PRED_FEATS:
+                qrep = get_qrep_file(row)
+                if qrep is not None:
+                    for node, data in G.nodes(data=True):
+                        if "Alias" in data:
+                            al = data["Alias"]
+                            if al in qrep["join_graph"].nodes():
+                                jvals = qrep["join_graph"].nodes()[al]
+                                G.nodes()[node]["pred_cols"] = jvals["pred_cols"]
+                                G.nodes()[node]["pred_types"] = jvals["pred_types"]
+                                G.nodes()[node]["pred_vals"] = []
+                                if not isinstance(jvals["pred_vals"], list):
+                                    jvals["pred_vals"] = [[jvals["pred_vals"]]]
+
+                                if len(jvals["pred_vals"]) == 0:
+                                    continue
+                                if not isinstance(jvals["pred_vals"][0], list):
+                                    jvals["pred_vals"] = [jvals["pred_vals"]]
+
+                                for cv in jvals["pred_vals"]:
+                                    cv = [str(cv2) for cv2 in cv]
+                                    G.nodes()[node]["pred_vals"] += cv
 
             # Iterate through each node in the graph
             # for node in G.nodes:
@@ -514,6 +535,8 @@ def get_plans(df):
                 rnf_val = sum(subdict[rnf] for subdict in
                         pdata.values() if rnf in subdict)
                 G.graph["runtime_feats"].append(rnf_val)
+
+            # G.graph["runtime_feats"].append(avg_latency_dict[row["qname"]])
 
             G.graph["runtime_feats"] += [est_card, est_cost]
             plans.append(G)

@@ -38,7 +38,7 @@ hist_net:
   save_weights: 1
   max_pool: 0
   hl: 32
-  num_layers: 2
+  num_layers: 4
   num_heads: 16
   dropout: 0.2
 
@@ -48,8 +48,14 @@ sys_net:
   pretrained : 0
   save_weights: 1
 
-  #pretrained_fn: "models4/mixed_noimdb_log.wt"
-  pretrained_fn: "models4/mixed_noimdb_hist_log.wt"
+  #pretrained_fn: "models4/mixed_noimdb_log_fact8.wt"
+  #pretrained_fn: "models4/mixed_noimdb_log_nostatic_logfeats.wt"
+  #pretrained_fn: "models4/mixed_noimdb_log_nostatic.wt"
+  #pretrained_fn: "models4/mixed_noimdb_log_nostatic.wt"
+  #pretrained_fn: "models4/mixed_noimdb_logfeats_col.wt"
+
+  #pretrained_fn: "models4/noactual_mixed_noimdb_logfeats_col.wt"
+  pretrained_fn: "models4/noactual_mixed_noimdb_logfeats_col_hist.wt"
 
   max_pool: 0
   hl: 512
@@ -61,9 +67,11 @@ sys_net:
 
 factorized_net:
   arch: "mlp" # dot product
-  embedding_size: 32
+  #embedding_size: 128
+  embedding_size: 16
   pretrained: 0
-  hl: 256
+  #hl: 256
+  hl: 64
   num_layers: 2
   dropout: 0.2
   heuristic_feats: 0
